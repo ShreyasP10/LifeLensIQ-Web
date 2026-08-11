@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "LifeIQ Tracker",
+  "version": "0.1.0",
+  "description": "Passive browser activity tracker for LifeIQ personal analytics (prototype).",
+  "permissions": ["storage", "tabs", "idle", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "LifeIQ Tracker",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*", "*://*.instagram.com/*", "*://*.facebook.com/*"],
+      "js": ["content-shorts.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://docs.google.com/*",
+        "*://*.office.com/*",
+        "*://*.live.com/*",
+        "*://*.onedrive.com/*"
+      ],
+      "js": ["content-writing.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="popup.css" />
+  <title>LifeIQ Tracker</title>
+</head>
+<body>
+  <header>
+    <h1>LifeIQ Tracker</h1>
+    <span id="status-dot" class="dot"></span>
+  </header>
+
+  <section id="auth-view" class="hidden">
+    <p class="muted">Sign in with your LifeIQ Firebase account to start syncing.</p>
+    <form id="login-form">
+      <input id="email" type="email" placeholder="email@example.com" autocomplete="username" required />
+      <input id="password" type="password" placeholder="password" autocomplete="current-password" required />
+      <button type="submit" id="signin-btn">Sign in</button>
+    </form>
+    <p id="auth-error" class="error hidden"></p>
+  </section>
+
+  <section id="app-view" class="hidden">
+    <div class="row"><span>Signed in as</span><strong id="user-email"></strong></div>
+    <div class="row"><span>Today (local buffer)</span><strong id="today-active">—</strong></div>
+    <div class="row"><span>Events pending sync</span><strong id="pending-sync">—</strong></div>
+    <div class="btn-row">
+      <button id="sync-btn">Sync now</button>
+      <button id="dashboard-btn">Open dashboard</button>
+      <button id="options-btn">Options</button>
+      <button id="logout-btn" class="danger">Sign out</button>
+    </div>
+  </section>
+
+  <footer class="muted">Passive tracking is on. Segment min: 5s · sync: every 2 min.</footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="options.css" />
+  <title>LifeIQ Tracker — Options</title>
+</head>
+<body>
+  <main>
+    <h1>LifeIQ Tracker — Options</h1>
+
+    <section>
+      <h2>Domain → Category overrides</h2>
+      <p class="muted">
+        These rules override the built-in classifier. Saved to your Firebase account and cached
+        locally so classification works offline. e.g. <code>youtube.com</code> →
+        <code>Study</code> if you follow coding channels.
+      </p>
+      <div class="form-row">
+        <input id="domain" type="text" placeholder="domain, e.g. youtube.com" />
+        <select id="category"></select>
+        <button id="add-btn">Add</button>
+      </div>
+      <ul id="list"></ul>
+    </section>
+
+    <section class="actions">
+      <button id="save-btn">Save to Firebase</button>
+      <button id="local-btn" class="secondary">Save locally only</button>
+      <button id="clear-btn" class="danger">Remove all overrides</button>
+      <span id="status" class="muted"></span>
+    </section>
+  </main>
+
+  <script src="options.js"></script>
+</body>
+</html>
