@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth/web-extension';
 import { getFirestore } from 'firebase/firestore';
 import { FIREBASE_CONFIG, isConfigured } from './firebase-config.js';
 
@@ -29,21 +29,7 @@ export function getFirebase() {
   return { app, auth, db };
 }
 
-export const chromeStoragePersistence = {
-  type: 'lifeiq-chrome-storage',
-  async _get() {
-    return (await chrome.storage.local.get('authToken')).authToken;
-  },
-  async _set(token, user) {
-    await chrome.storage.local.set({ authToken: token, authUser: user });
-  },
-  async _remove() {
-    await chrome.storage.local.remove(['authToken', 'authUser']);
-  },
-};
-
 export async function initAuth(authInstance) {
-  await setPersistence(authInstance, chromeStoragePersistence);
   await authInstance.authStateReady();
   return new Promise((resolve) => {
     onAuthStateChanged(authInstance, (user) => resolve(user));

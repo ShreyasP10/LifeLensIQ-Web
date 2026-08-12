@@ -1,6 +1,6 @@
 {
   "name": "lifeiq-extension",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "LifeIQ passive browser activity tracker (MV3).",
   "type": "module",
@@ -9,7 +9,10 @@
     "watch": "node scripts/build.mjs --watch"
   },
   "devDependencies": {
-    "esbuild": "^0.21.5",
+    "esbuild": ">=0.25.0 <0.26.0",
     "firebase": "^10.12.2"
+  },
+  "overrides": {
+    "undici": "^6.28.0"
   }
 }

@@ -25,6 +25,19 @@
 - **Dashboard** (Firebase Hosting) provides login (email/password + Google), colour-coded timelines, category stats, a productivity score, opt-in leaderboard, college timetable import (from the agent's `fetch_timetable.py` output), and **CSV/JSON export** for ML training.
 - **All data** lives in `users/{uid}/…` in **your own** Firebase project, isolated by Firestore security rules.
 
+## Features (v0.2)
+
+**Dashboard**
+- Overview with a **Today / 7 days / 30 days** range switcher: score ring, stacked daily bar chart (productive vs neutral vs distracting), category pie, trend badges (score + active time vs the previous period) and a **focus streak** counter.
+- Timeline with **category filter chips** (with counts), event-type filter, free-text search, and pagination.
+- Leaderboard with user search and sort by score or active time.
+- Export fetches **paged ranges (1000 docs/page, up to 100k events)**, and the "aggregated stats" download now includes hourly/weekday/event-type distributions and per-category weighted productivity metrics — ready for feature-engineering.
+
+**Extension**
+- Popup shows the **live tracked session** (domain + elapsed time), a mini bar breakdown of today's activity by category, pending-sync count, **last sync time**, online/offline status, and a **Pause/resume tracking** toggle (privacy).
+- Sync hardening: last-sync timestamp persisted, exponential backoff on repeated chunk failures, offline detection (skips attempts while disconnected).
+- `getState` message API lets the popup query background state instead of guessing from stale local data.
+
 ## Setup (one-time)
 
 ### 1. Firebase project
@@ -34,12 +47,18 @@
 3. Enable **Cloud Firestore** (native mode).
 4. Add a **Web app** (`</>`) → copy the `firebaseConfig` object.
 
-### 2. Paste your Firebase config
+### 2. Configure Firebase keys — no `.env` needed to try the UI
 
-| File | Field |
-|------|-------|
-| `extension/src/shared/firebase-config.js` | `FIREBASE_CONFIG` |
-| `dashboard/src/config.js` | `FIREBASE_CONFIG` |
+> **Demo mode:** if no keys are configured, the dashboard runs instantly with realistic sample
+> data stored locally in your browser (all tabs work: overview, timeline, exports, leaderboard,
+> timetable, settings). Add your keys whenever you're ready.
+
+| File | What to do |
+|------|-----------|
+| `dashboard/.env` | Copy `dashboard/.env.example` → fill the 6 `VITE_FIREBASE_*` values (Console → Project settings → Your apps → SDK setup). Restart `npm run dev`. |
+| `extension/src/shared/firebase-config.js` | Paste the same `firebaseConfig` object into `FIREBASE_CONFIG`. |
+
+Never commit `.env` — it is git-ignored.
 
 ### 3. Deploy security rules
 
@@ -59,6 +78,7 @@ cd dashboard
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # production bundle in dist/
+npm run test       # unit tests (vitest) — stats, categories, timetable, export, demo-db
 npx firebase deploy --only hosting   # deploy
 ```
 
@@ -80,7 +100,7 @@ Run the agent's timetable program to produce JSON in the shape described in `doc
 
 ## Export for ML
 
-Dashboard → **Export** → choose range → **CSV (raw)** / **JSON (raw)** / **JSON (stats)**. The raw events CSV opens directly in `pandas.read_csv()`:
+Dashboard → **Export** → choose range → **CSV (raw)** / **JSON (raw)** / **JSON (stats)**. The raw events CSV opens directly in `pandas.read_csv()`. Large ranges are fetched in pages of 1000 (up to 100 000 events); the stats export adds `byHour`, `byWeekday`, `byEventType` and per-category weighted productivity metrics:
 
 ```python
 import pandas as pd

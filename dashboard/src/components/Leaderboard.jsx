@@ -1,14 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
-import { db, auth } from '../firebase.js';
-import { collection, query, orderBy, limit, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import {
+  db,
+  auth,
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  doc,
+  setDoc,
+} from '../firebase.js';
 import { aggregate, formatDuration, lastNDays, dayKey } from '../lib/stats.js';
 
 export default function Leaderboard({ user, events }) {
   const [rows, setRows] = useState([]);
   const [saved, setSaved] = useState('');
+  const [sortBy, setSortBy] = useState('score');
+  const [queryText, setQueryText] = useState('');
 
   useEffect(() => {
-    const q = query(collection(db, 'leaderboard'), orderBy('score', 'desc'), limit(25));
+    const q = query(collection(db, 'leaderboard'), orderBy('score', 'desc'), limit(50));
     const unsub = onSnapshot(q, (snap) => setRows(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))));
     return unsub;
   }, []);
@@ -18,6 +29,18 @@ export default function Leaderboard({ user, events }) {
     const weekEvents = events.filter((e) => weekKeys.includes(dayKey(e.ts)));
     return aggregate(weekEvents);
   }, [events]);
+
+  const visible = useMemo(() => {
+    const q = queryText.trim().toLowerCase();
+    const filtered = q
+      ? rows.filter((r) => (r.displayName || '').toLowerCase().includes(q))
+      : rows;
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'active') return (b.totalSeconds || 0) - (a.totalSeconds || 0);
+      return (b.score || 0) - (a.score || 0);
+    });
+    return sorted.slice(0, 50);
+  }, [rows, sortBy, queryText]);
 
   async function refreshMyScore() {
     const name = user.email ? user.email.split('@')[0] : 'anonymous';
@@ -45,12 +68,26 @@ export default function Leaderboard({ user, events }) {
         {saved && <span className="hint" style={{ alignSelf: 'center' }}>{saved}</span>}
       </div>
 
+      <div className="filter-row" style={{ marginTop: 14 }}>
+        <input
+          className="search-input"
+          type="search"
+          placeholder="Search users…"
+          value={queryText}
+          onChange={(e) => setQueryText(e.target.value)}
+        />
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <option value="score">Sort by score</option>
+          <option value="active">Sort by active time</option>
+        </select>
+      </div>
+
       <table style={{ marginTop: 14 }}>
         <thead>
           <tr><th>#</th><th>User</th><th>Score</th><th>Active (7d)</th><th>Days with data</th></tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
+          {visible.map((r, i) => (
             <tr key={r.uid} className={r.uid === user.uid ? 'now' : ''}>
               <td>{i + 1}</td>
               <td>{r.displayName} {r.uid === user.uid && <span className="tag">you</span>}</td>
@@ -59,7 +96,7 @@ export default function Leaderboard({ user, events }) {
               <td>{r.sampleDays ?? '—'}</td>
             </tr>
           ))}
-          {rows.length === 0 && (
+          {visible.length === 0 && (
             <tr><td colSpan={5} className="muted">No scores published yet. Be the first.</td></tr>
           )}
         </tbody>

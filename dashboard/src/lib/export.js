@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { aggregate } from './stats.js';
+import { buildStatsReport } from './stats.js';
 
 export const CSV_COLUMNS = [
   'id',
@@ -49,27 +49,7 @@ export function toRawJSON(events, range) {
 }
 
 export function toStatsJSON(events, range) {
-  const stats = aggregate(events);
-  return JSON.stringify(
-    {
-      exportedAt: Date.now(),
-      schemaVersion: 1,
-      range,
-      totals: {
-        count: stats.count,
-        totalSeconds: stats.totalSeconds,
-        productiveSeconds: stats.productiveSeconds,
-        score: stats.score,
-        shortsSeconds: stats.shortsSeconds,
-        writingSeconds: stats.writingSeconds,
-      },
-      byDay: stats.byDay,
-      byCategory: stats.byCategory,
-      byDomain: stats.byDomain,
-    },
-    null,
-    2
-  );
+  return JSON.stringify(buildStatsReport(events, range), null, 2);
 }
 
 export function downloadBlob(content, filename, type = 'text/plain') {

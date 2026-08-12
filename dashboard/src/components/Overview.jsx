@@ -1,5 +1,16 @@
-import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useMemo, useState } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts';
 import {
   aggregate,
   formatDuration,
@@ -7,69 +18,141 @@ import {
   lastNDays,
   dayKeyLocal,
   eventsOnDay,
+  inRange,
+  comparePeriods,
+  pctChange,
+  focusStreak,
 } from '../lib/stats.js';
-import { categoryColor, CATEGORY_KEYS } from '../lib/categories.js';
+import {
+  categoryColor,
+  CATEGORY_KEYS,
+  isProductiveCategory,
+  isDistractingCategory,
+} from '../lib/categories.js';
 import { todayClasses, currentClass } from '../lib/timetable.js';
+
+const RANGES = [
+  ['today', 'Today'],
+  ['7d', '7 days'],
+  ['30d', '30 days'],
+];
+
+const STACK_COLORS = { productive: '#4ade80', neutral: '#94a3b8', distracting: '#f87171' };
+
+function dayLabel(key, range) {
+  const [, m, d] = key.split('-');
+  return `${Number(m)}/${Number(d)}`;
+}
 
 export default function Overview({ events, settings, timetable }) {
   const now = Date.now();
+  const [range, setRange] = useState('7d');
 
+  const rangeDays = range === 'today' ? 1 : range === '30d' ? 30 : 7;
   const todayKey = dayKeyLocal(new Date());
-  const todayEvents = useMemo(() => eventsOnDay(events, todayKey), [events, todayKey]);
-  const today = useMemo(() => aggregate(todayEvents), [todayEvents]);
 
-  const weekKeys = lastNDays(7, now);
-  const week = useMemo(() => aggregate(events), [events]);
-  const weekBars = weekKeys.map((k) => ({
-    day: k.slice(5).replace('-', '/'),
-    seconds: Math.round(((week.byDay[k] || 0) / 3600) * 10) / 10,
-  }));
+  const rangeEvents = useMemo(() => {
+    return range === 'today' ? eventsOnDay(events, todayKey) : inRange(events, rangeDays, now);
+  }, [events, range, todayKey, rangeDays, now]);
+
+  const cur = useMemo(() => aggregate(rangeEvents), [rangeEvents]);
+  const prev = useMemo(() => {
+    if (range === 'today') {
+      return aggregate(eventsOnDay(events, dayKeyLocal(new Date(now - 86400000))));
+    }
+    return comparePeriods(events, rangeDays, now).previous;
+  }, [events, range, rangeDays, now]);
+
+  const rangeKeys = range === 'today' ? [todayKey] : lastNDays(rangeDays, now);
+  const stackBars = rangeKeys.map((k) => {
+    const dayEvents = eventsOnDay(events, k);
+    const a = aggregate(dayEvents);
+    let productive = 0;
+    let distracting = 0;
+    let neutral = 0;
+    for (const [c, s] of Object.entries(a.byCategory)) {
+      if (isProductiveCategory(c)) productive += s;
+      else if (isDistractingCategory(c)) distracting += s;
+      else neutral += s;
+    }
+    return {
+      day: dayLabel(k, range),
+      productive: Math.round((productive / 3600) * 10) / 10,
+      neutral: Math.round((neutral / 3600) * 10) / 10,
+      distracting: Math.round((distracting / 3600) * 10) / 10,
+    };
+  });
 
   const pieData = useMemo(
     () =>
-      CATEGORY_KEYS.map((c) => ({ name: c, value: Math.round((today.byCategory[c] || 0) / 60) }))
+      CATEGORY_KEYS.map((c) => ({ name: c, value: Math.round((cur.byCategory[c] || 0) / 60) }))
         .filter((d) => d.value > 0),
-    [today]
+    [cur]
   );
 
-  const topDomains = topEntries(today.byDomain, 5);
+  const topDomains = topEntries(cur.byDomain, 5);
+  const streak = useMemo(() => focusStreak(events, now), [events, now]);
+  const scoreDelta = cur.score - prev.score;
+  const activePct = pctChange(cur.totalSeconds, prev.totalSeconds);
   const classes = todayClasses(timetable);
   const current = currentClass(timetable);
+  const rangeLabel = range === 'today' ? 'today' : `last ${rangeDays} days`;
+
+  const tooltipStyle = {
+    background: '#0f1728',
+    border: '1px solid rgba(148, 163, 184, 0.18)',
+    borderRadius: 10,
+  };
 
   return (
     <div>
       <div className="panel">
-        <h2>Today · Productivity Score</h2>
+        <div className="head-row">
+          <h2>{range === 'today' ? 'Today' : `Last ${rangeDays} days`} · Productivity Score</h2>
+          <div className="range-pills">
+            {RANGES.map(([key, label]) => (
+              <button
+                key={key}
+                className={range === key ? 'active' : ''}
+                onClick={() => setRange(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="ring-wrap">
           <div className="ring">
-            <svg width="140" height="140">
-              <circle cx="70" cy="70" r="60" stroke="#334155" strokeWidth="12" fill="none" />
+            <svg width="150" height="150">
+              <circle cx="75" cy="75" r="64" stroke="#1e2c47" strokeWidth="13" fill="none" />
               <circle
-                cx="70" cy="70" r="60"
-                stroke="#22d3ee"
-                strokeWidth="12" fill="none"
+                cx="75" cy="75" r="64"
+                stroke="#38bdf8"
+                strokeWidth="13" fill="none"
                 strokeLinecap="round"
-                strokeDasharray={`${(today.score / 100) * 2 * Math.PI * 60} ${2 * Math.PI * 60}`}
+                strokeDasharray={`${(cur.score / 100) * 2 * Math.PI * 64} ${2 * Math.PI * 64}`}
+                style={{ filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.5))' }}
               />
             </svg>
             <div className="val">
-              {today.score}<small>/100</small>
+              {cur.score}<small>/100</small>
             </div>
           </div>
-          <div>
+          <div style={{ flex: 1, minWidth: 280 }}>
             <div className="row">
-              <span>Active time today</span><strong>{formatDuration(today.totalSeconds)}</strong>
+              <span>Active time ({rangeLabel})</span><strong>{formatDuration(cur.totalSeconds)}</strong>
             </div>
             <div className="row">
-              <span>Productive time</span><strong>{formatDuration(today.productiveSeconds)}</strong>
+              <span>Productive time</span><strong>{formatDuration(cur.productiveSeconds)}</strong>
             </div>
             <div className="row">
-              <span>Shorts/reels</span><strong>{formatDuration(today.shortsSeconds)}</strong>
+              <span>Shorts/reels</span><strong>{formatDuration(cur.shortsSeconds)}</strong>
             </div>
             <div className="row">
-              <span>Writing sessions</span><strong>{formatDuration(today.writingSeconds)}</strong>
+              <span>Writing sessions</span><strong>{formatDuration(cur.writingSeconds)}</strong>
             </div>
-            {current && (
+            {range === 'today' && current && (
               <div className="row">
                 <span>Now in class</span>
                 <strong style={{ color: 'var(--accent)' }}>
@@ -77,11 +160,22 @@ export default function Overview({ events, settings, timetable }) {
                 </strong>
               </div>
             )}
+            <div className="trend-row">
+              <span className={`trend ${scoreDelta >= 0 ? 'up' : 'down'}`}>
+                Score {scoreDelta >= 0 ? '▲' : '▼'} {Math.abs(scoreDelta)} pts vs previous
+                {range === 'today' ? ' day' : ` ${rangeDays}d`}
+              </span>
+              <span className={`trend ${activePct === null ? '' : activePct >= 0 ? 'up' : 'down'}`}>
+                {activePct === null
+                  ? 'No prior data to compare'
+                  : `Active time ${activePct >= 0 ? '+' : ''}${activePct}% vs previous period`}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {classes.length > 0 && (
+      {range === 'today' && classes.length > 0 && (
         <div className="panel">
           <h2>Today's Classes (from timetable)</h2>
           <table>
@@ -104,40 +198,61 @@ export default function Overview({ events, settings, timetable }) {
 
       <div className="grid">
         <div className="card">
-          <h3>Events today</h3>
-          <div className="big">{today.count}</div>
+          <h3>Events ({rangeLabel})</h3>
+          <div className="big">{cur.count}</div>
         </div>
         <div className="card">
-          <h3>Top domain today</h3>
+          <h3>Top domain ({rangeLabel})</h3>
           <div className="big" style={{ fontSize: 18 }}>{topDomains[0]?.name || '—'}</div>
           <div className="sub">{topDomains[0] ? formatDuration(topDomains[0].seconds) : 'no data'}</div>
         </div>
         <div className="card">
-          <h3>Categories active today</h3>
+          <h3>Categories active</h3>
           <div className="big">{pieData.length}</div>
           <div className="sub">of {CATEGORY_KEYS.length}</div>
+        </div>
+        <div className="card">
+          <h3>Focus streak</h3>
+          <div className="big">{streak}<small style={{ fontSize: 13 }}> days</small></div>
+          <div className="sub">consecutive days with activity</div>
         </div>
       </div>
 
       <div className="grid">
         <div className="card" style={{ gridColumn: 'span 2' }}>
-          <h3>Screen time — last 7 days (hours)</h3>
-          <div style={{ height: 220 }}>
+          <h3>Screen time — daily ({rangeLabel}, hours)</h3>
+          <div style={{ height: 240 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weekBars}>
+              <BarChart data={stackBars}>
                 <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
                 <YAxis stroke="#94a3b8" fontSize={11} />
                 <Tooltip
-                  contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                  formatter={(v) => [`${v} h`, 'active']}
+                  contentStyle={tooltipStyle}
+                  formatter={(v, name) => [`${v} h`, name]}
                 />
-                <Bar dataKey="seconds" fill="#22d3ee" radius={[4, 4, 0, 0]} />
+                <Legend
+                  wrapperStyle={{ fontSize: 12 }}
+                  formatter={(value) => (
+                    <span style={{ color: '#cbd5e1', marginRight: 8 }}>{value}</span>
+                  )}
+                />
+                <Bar dataKey="productive" stackId="a" fill={STACK_COLORS.productive} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="neutral" stackId="a" fill={STACK_COLORS.neutral} />
+                <Bar dataKey="distracting" stackId="a" fill={STACK_COLORS.distracting} radius={[5, 5, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="legend-line">
+            {Object.entries(STACK_COLORS).map(([name, color]) => (
+              <span key={name} className="chip">
+                <span style={{ width: 8, height: 8, borderRadius: 4, background: color }} />
+                {name}
+              </span>
+            ))}
+          </div>
         </div>
         <div className="card">
-          <h3>Today by category (minutes)</h3>
+          <h3>By category ({rangeLabel}, minutes)</h3>
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -147,7 +262,7 @@ export default function Overview({ events, settings, timetable }) {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
+                  contentStyle={tooltipStyle}
                 />
               </PieChart>
             </ResponsiveContainer>

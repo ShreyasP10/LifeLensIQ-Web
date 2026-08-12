@@ -1,15 +1,18 @@
-import { initFirebase, initAuth, chromeStoragePersistence } from './shared/firebase.js';
+import { initFirebase, initAuth } from './shared/firebase.js';
 import { classify, SHORT_URL_RE, CATEGORIES } from './shared/categories.js';
 import { buildEvent, makeEventId } from './shared/schema.js';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth/web-extension';
 import { getFirestore, writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
 
 const SESSION_KEY = 'lifeiq_session';
 const BUFFER_KEY = 'lifeiq_buffer';
 const META_KEY = 'lifeiq_meta';
 const OVERRIDES_KEY = 'categoryOverrides';
+const PAUSE_KEY = 'lifeiq_paused';
+const LAST_SYNC_KEY = 'lifeiq_last_sync';
 
 const MIN_SEGMENT_MS = 5000;
+const MERGE_GAP_MS = 45000;
 const IDLE_THRESHOLD_SECONDS = 15;
 const TICK_MINUTES = 1;
 const MAX_BUFFER = 20000;
@@ -42,6 +45,12 @@ async function setBuffer(b) {
 }
 async function getOverrides() {
   return (await chrome.storage.local.get(OVERRIDES_KEY))[OVERRIDES_KEY] || {};
+}
+async function getPaused() {
+  return Boolean((await chrome.storage.local.get(PAUSE_KEY))[PAUSE_KEY]);
+}
+async function setLastSyncTs() {
+  await chrome.storage.local.set({ [LAST_SYNC_KEY]: Date.now() });
 }
 
 /* ---------------- url helpers ---------------- */
@@ -115,7 +124,25 @@ async function flushSegment() {
   }
   const ev = buildEvent(s);
   const buffer = await getBuffer();
-  buffer.push(ev);
+
+  const last = buffer[buffer.length - 1];
+  const sameSite =
+    last &&
+    last.domain === ev.domain &&
+    last.eventType === ev.eventType &&
+    last.category === ev.category &&
+    last.endTs &&
+    ev.ts >= last.ts &&
+    ev.ts - last.endTs <= MERGE_GAP_MS;
+
+  if (sameSite) {
+    last.endTs = ev.endTs;
+    last.durationSeconds = Math.max(1, Math.round((ev.endTs - last.ts) / 1000));
+    last.title = ev.title || last.title;
+    last.path = ev.path || last.path;
+  } else {
+    buffer.push(ev);
+  }
   await setBuffer(buffer);
   await chrome.storage.local.set({ lastEventTs: now });
 }
@@ -130,6 +157,7 @@ async function startSegmentForTab(tabId) {
 
 async function onTabChanged(tabId) {
   await flushSegment();
+  if (await getPaused()) return;
   await startSegmentForTab(tabId);
 }
 
@@ -137,6 +165,10 @@ async function onTabChanged(tabId) {
 
 async function tick() {
   if (!authReady) await init();
+  if (await getPaused()) {
+    await flushSegment();
+    return;
+  }
   const idleState = await chrome.idle.queryState(IDLE_THRESHOLD_SECONDS);
   if (idleState === 'idle') {
     await flushSegment();
@@ -173,6 +205,7 @@ async function tick() {
 /* ---------------- content script messages ---------------- */
 
 async function handleShortView(tabId, url) {
+  if (await getPaused()) return;
   const s = await getSession();
   if (!s || s.tabId !== tabId) return;
   if (s.shorts.lastUrl === url) return;
@@ -185,6 +218,7 @@ async function handleShortView(tabId, url) {
 }
 
 async function handleTypingBurst(tabId, count) {
+  if (await getPaused()) return;
   const s = await getSession();
   if (!s || s.tabId !== tabId) return;
   s.typingBursts += count;
@@ -236,6 +270,7 @@ async function syncBuffer() {
     await setBuffer(remaining);
     syncFailures = 0;
     lastSyncAttempt = 0;
+    await setLastSyncTs();
     broadcastSyncStatus();
   }
 }
@@ -301,7 +336,7 @@ chrome.runtime.onInstalled.addListener(() => {
   init();
   chrome.storage.local.get(META_KEY).then((res) => {
     if (!res[META_KEY]) {
-      chrome.storage.local.set({ [META_KEY]: { installedAt: Date.now(), version: '0.1.0' } });
+      chrome.storage.local.set({ [META_KEY]: { installedAt: Date.now(), version: '0.2.0' } });
     }
   });
 });
@@ -346,6 +381,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     handleTypingBurst(sender.tab.id, msg.count || 1);
   } else if (msg.type === 'syncNow') {
     init().then(syncBuffer);
+  } else if (msg.type === 'getState') {
+    (async () => {
+      const [paused, session, lastSyncTs, buffer] = await Promise.all([
+        getPaused(),
+        getSession(),
+        chrome.storage.local.get(LAST_SYNC_KEY).then((r) => r[LAST_SYNC_KEY] || null),
+        getBuffer(),
+      ]);
+      const online = typeof navigator === 'undefined' ? true : navigator.onLine;
+      const ev = session ? buildEvent(session) : null;
+      sendResponse({
+        paused,
+        online,
+        pending: buffer.length,
+        lastSyncTs,
+        session: session
+          ? {
+              domain: session.domain,
+              title: session.title,
+              eventType: session.eventType,
+              category: session.category,
+              startTs: session.startTs,
+              durationSeconds: ev ? ev.durationSeconds : 0,
+            }
+          : null,
+      });
+    })();
+    return true;
+  } else if (msg.type === 'setPause') {
+    chrome.storage.local.set({ [PAUSE_KEY]: Boolean(msg.paused) });
+    if (msg.paused) flushSegment();
+    sendResponse({ ok: true });
   }
   sendResponse({ ok: true });
   return false;

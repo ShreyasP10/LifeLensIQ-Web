@@ -8,7 +8,7 @@
 <body>
   <header>
     <h1>LifeIQ Tracker</h1>
-    <span id="status-dot" class="dot"></span>
+    <span id="status-dot" class="dot" title="Tracking status"></span>
   </header>
 
   <section id="auth-view" class="hidden">
@@ -23,8 +23,21 @@
 
   <section id="app-view" class="hidden">
     <div class="row"><span>Signed in as</span><strong id="user-email"></strong></div>
+    <div class="row">
+      <span>Tracking</span>
+      <label class="switch">
+        <input type="checkbox" id="pause-toggle" />
+        <span class="slider"></span>
+        <span id="pause-label">On</span>
+      </label>
+    </div>
+    <div class="row"><span>Live session</span><strong id="live-session">—</strong></div>
     <div class="row"><span>Today (local buffer)</span><strong id="today-active">—</strong></div>
     <div class="row"><span>Events pending sync</span><strong id="pending-sync">—</strong></div>
+    <div class="row"><span>Last sync</span><strong id="last-sync">—</strong></div>
+
+    <div class="cat-summary" id="cat-summary"></div>
+
     <div class="btn-row">
       <button id="sync-btn">Sync now</button>
       <button id="dashboard-btn">Open dashboard</button>
@@ -33,7 +46,7 @@
     </div>
   </section>
 
-  <footer class="muted">Passive tracking is on. Segment min: 5s · sync: every 2 min.</footer>
+  <footer class="muted">Passive tracking is on. Segment min: 5s · sync: every 1 min.</footer>
 
   <script src="popup.js"></script>
 </body>

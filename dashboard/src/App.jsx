@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
-import { auth, db } from './firebase.js';
-import { onAuthStateChanged } from 'firebase/auth';
-import { query, collection, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
+import {
+  auth,
+  db,
+  live,
+  onAuthStateChanged,
+  query,
+  collection,
+  orderBy,
+  limit,
+  onSnapshot,
+  doc,
+} from './firebase.js';
 import Login from './components/Login.jsx';
 import Overview from './components/Overview.jsx';
 import Timeline from './components/Timeline.jsx';
@@ -96,6 +105,14 @@ function Dashboard({ user }) {
       </nav>
 
       {dataError && <div className="banner error">{dataError}</div>}
+
+      {!live && (
+        <div className="demo-banner">
+          <span className="demo-dot" /> Demo mode — sample data stored locally in your browser.
+          Add your Firebase keys in <code>dashboard/.env</code> (see <code>.env.example</code>) and
+          restart <code>npm run dev</code> to go live.
+        </div>
+      )}
 
       <main>
         {tab === 'overview' && (

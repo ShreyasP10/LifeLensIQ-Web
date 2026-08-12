@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { db } from '../firebase.js';
-import { doc, setDoc } from 'firebase/firestore';
+import { db, doc, setDoc } from '../firebase.js';
 import { normalizeTimetable, todayClasses, minutesFromHHMM, sampleTimetable } from '../lib/timetable.js';
 
 export default function TimetablePage({ user, timetable }) {

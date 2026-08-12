@@ -39,3 +39,13 @@ export const CATEGORY_WEIGHTS = {
 export function categoryColor(category) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS[CATEGORIES.OTHER];
 }
+
+export function isProductiveCategory(category) {
+  return (CATEGORY_WEIGHTS[category] ?? 0) >= 0.8;
+}
+
+export function isDistractingCategory(category) {
+  return category === CATEGORIES.ENTERTAINMENT ||
+    category === CATEGORIES.SOCIAL ||
+    category === CATEGORIES.SHORT_VIDEO;
+}

@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { auth, db, googleProvider } from '../firebase.js';
 import {
+  auth,
+  db,
+  googleProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
-} from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+  doc,
+  setDoc,
+} from '../firebase.js';
 
 async function afterAuth(user) {
   await setDoc(
@@ -52,12 +55,15 @@ export default function Login() {
 
   return (
     <div className="center">
-      <div className="panel" style={{ width: 380 }}>
+      <div className="panel login">
+        <div className="brand" style={{ marginBottom: 12 }}>
+          <span className="logo">LQ</span> LifeIQ
+        </div>
         <h2>LifeIQ Dashboard</h2>
         <p className="muted" style={{ marginBottom: 14 }}>
           Sign in with the same Firebase account used in the extension.
         </p>
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <form onSubmit={submit}>
           <input
             type="email"
             placeholder="email@example.com"
@@ -90,7 +96,8 @@ export default function Login() {
         </div>
         {error && <p className="error" style={{ marginTop: 10 }}>{error}</p>}
         <p className="hint">
-          No Firebase config? Fill <code>src/config.js</code> — see README.
+          No Firebase keys? The dashboard runs in <b>demo mode</b> with sample data. To go live,
+          fill <code>dashboard/.env</code> (see <code>.env.example</code> and README).
         </p>
       </div>
     </div>

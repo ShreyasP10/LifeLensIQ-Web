@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import { auth, db } from '../firebase.js';
-import { signOut } from 'firebase/auth';
 import {
-  collection, getDocs, query, orderBy, limit, writeBatch, doc, setDoc, deleteDoc,
-} from 'firebase/firestore';
+  auth,
+  db,
+  signOut,
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  writeBatch,
+  doc,
+  setDoc,
+  deleteDoc,
+} from '../firebase.js';
 import { CATEGORY_KEYS } from '../lib/categories.js';
 
 export default function SettingsPage({ user, settings }) {
