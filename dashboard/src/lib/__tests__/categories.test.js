@@ -40,7 +40,7 @@ describe('dashboard categories', () => {
     expect(isProductiveCategory('Development')).toBe(true);
     expect(isProductiveCategory('Entertainment')).toBe(false);
     expect(isDistractingCategory('Short-form Video')).toBe(true);
-    expect(isDistractingCategory('Social')).toBe(true);
+    expect(isDistractingCategory('Timepass')).toBe(true);
     expect(isDistractingCategory('Study')).toBe(false);
   });
 });
@@ -52,10 +52,47 @@ describe('extension classify (shared rules)', () => {
     expect(SHORT_URL_RE.test('/watch?v=1')).toBe(false);
   });
 
-  it('classifies known domains', () => {
-    expect(classify('youtube.com', '/watch?v=1')).toBe(CATEGORIES.ENTERTAINMENT);
+  it('AI assistants are Productivity', () => {
+    expect(classify('chatgpt.com', '/')).toBe('Productivity');
+    expect(classify('chat.openai.com', '/')).toBe('Productivity');
+    expect(classify('chat.deepseek.com', '/chat')).toBe('Productivity');
+    expect(classify('deepseek.com', '/')).toBe('Productivity');
+    expect(classify('claude.ai', '/')).toBe('Productivity');
+    expect(classify('perplexity.ai', '/')).toBe('Productivity');
+    expect(classify('gemini.google.com', '/')).toBe('Productivity');
+  });
+
+  it('college / education sites are Study', () => {
+    expect(classify('elearn.apsit.edu.in', '/moodle/')).toBe('Study');
+    expect(classify('apsit.edu.in', '/')).toBe('Study');
+    expect(classify('moodle.org', '/course/view.php')).toBe('Study');
+    expect(classify('nptel.ac.in', '/course')).toBe('Study');
+  });
+
+  it('coding practice sites are DSA', () => {
     expect(classify('leetcode.com', '/problems')).toBe('DSA');
-    expect(classify('github.com', '/')).toBe('Development');
+    expect(classify('codeforces.com', '/')).toBe('DSA');
+    expect(classify('geeksforgeeks.org', '/graph')).toBe('DSA');
+  });
+
+  it('dev platforms are Development', () => {
+    expect(classify('stackoverflow.com', '/questions')).toBe('Development');
+    expect(classify('w3schools.com', '/js')).toBe('Development');
+    expect(classify('kaggle.com', '/')).toBe('Development');
+  });
+
+  it('GitHub and LinkedIn are Productivity', () => {
+    expect(classify('github.com', '/')).toBe('Productivity');
+    expect(classify('linkedin.com', '/feed')).toBe('Productivity');
+    expect(classify('mail.google.com', '/')).toBe('Productivity');
+    expect(classify('notion.so', '/')).toBe('Productivity');
+  });
+
+  it('timepass sites are Timepass (was Social)', () => {
+    for (const d of ['instagram.com', 'x.com', 'twitter.com', 'facebook.com', 'web.whatsapp.com', 'reddit.com', 'discord.com', 'snapchat.com']) {
+      expect(classify(d, '/')).toBe('Timepass');
+    }
+    expect(CATEGORIES.TIMEPASS).toBe('Timepass');
   });
 
   it('exact shorts path wins over domain rules', () => {
@@ -64,6 +101,7 @@ describe('extension classify (shared rules)', () => {
 
   it('supports subdomain suffix matching', () => {
     expect(classify('mail.google.com', '/')).toBe('Productivity');
+    expect(classify('chat.deepseek.com', '/')).toBe('Productivity');
     expect(classify('anything.stackoverflow.com', '/')).toBe('Development');
   });
 

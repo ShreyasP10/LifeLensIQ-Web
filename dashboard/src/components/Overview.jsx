@@ -99,8 +99,8 @@ export default function Overview({ events, settings, timetable }) {
   const rangeLabel = range === 'today' ? 'today' : `last ${rangeDays} days`;
 
   const tooltipStyle = {
-    background: '#0f1728',
-    border: '1px solid rgba(148, 163, 184, 0.18)',
+    background: 'var(--tooltip-bg)',
+    border: '1px solid var(--tooltip-border)',
     borderRadius: 10,
   };
 
@@ -125,7 +125,7 @@ export default function Overview({ events, settings, timetable }) {
         <div className="ring-wrap">
           <div className="ring">
             <svg width="150" height="150">
-              <circle cx="75" cy="75" r="64" stroke="#1e2c47" strokeWidth="13" fill="none" />
+              <circle cx="75" cy="75" r="64" stroke="var(--ring-track)" strokeWidth="13" fill="none" />
               <circle
                 cx="75" cy="75" r="64"
                 stroke="#38bdf8"
@@ -224,8 +224,8 @@ export default function Overview({ events, settings, timetable }) {
           <div style={{ height: 240 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stackBars}>
-                <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
-                <YAxis stroke="#94a3b8" fontSize={11} />
+                <XAxis dataKey="day" stroke="var(--muted)" fontSize={11} />
+                <YAxis stroke="var(--muted)" fontSize={11} />
                 <Tooltip
                   contentStyle={tooltipStyle}
                   formatter={(v, name) => [`${v} h`, name]}
@@ -233,7 +233,7 @@ export default function Overview({ events, settings, timetable }) {
                 <Legend
                   wrapperStyle={{ fontSize: 12 }}
                   formatter={(value) => (
-                    <span style={{ color: '#cbd5e1', marginRight: 8 }}>{value}</span>
+                    <span style={{ color: 'var(--muted)', marginRight: 8 }}>{value}</span>
                   )}
                 />
                 <Bar dataKey="productive" stackId="a" fill={STACK_COLORS.productive} radius={[0, 0, 0, 0]} />

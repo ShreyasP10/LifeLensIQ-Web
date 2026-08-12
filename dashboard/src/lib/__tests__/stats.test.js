@@ -86,7 +86,7 @@ describe('aggregate', () => {
   it('buckets by day, hour, weekday, event type', () => {
     const t1 = new Date(2026, 7, 11, 9, 10).getTime(); // Tuesday local
     const t2 = new Date(2026, 7, 12, 22, 0).getTime();
-    const a = aggregate([ev('a', t1, 100, 'Study'), ev('b', t2, 50, 'Social')]);
+    const a = aggregate([ev('a', t1, 100, 'Study'), ev('b', t2, 50, 'Timepass')]);
     expect(a.byDay['2026-08-11']).toBe(100);
     expect(a.byDay['2026-08-12']).toBe(50);
     expect(a.byHour[9]).toBe(100);
@@ -121,7 +121,7 @@ describe('eventsOnDay / filterRange / inRange', () => {
   const base = new Date(2026, 7, 11, 8).getTime();
   const events = [
     ev('a', base, 100, 'Study'),
-    ev('b', base + 4000, 200, 'Social'),
+    ev('b', base + 4000, 200, 'Timepass'),
     ev('c', base + 86400000, 300, 'Study'),
   ];
 
