@@ -4,7 +4,7 @@ export const CATEGORIES = {
   DEVELOPMENT: 'Development',
   PRODUCTIVITY: 'Productivity',
   ENTERTAINMENT: 'Entertainment',
-  SOCIAL: 'Social',
+  TIMEPASS: 'Timepass',
   SHORT_VIDEO: 'Short-form Video',
   UTILITIES: 'Utilities',
   OTHER: 'Other',
@@ -18,7 +18,7 @@ export const CATEGORY_COLORS = {
   [CATEGORIES.DEVELOPMENT]: '#818cf8',
   [CATEGORIES.PRODUCTIVITY]: '#fbbf24',
   [CATEGORIES.ENTERTAINMENT]: '#f87171',
-  [CATEGORIES.SOCIAL]: '#fb923c',
+  [CATEGORIES.TIMEPASS]: '#fb923c',
   [CATEGORIES.SHORT_VIDEO]: '#e879f9',
   [CATEGORIES.UTILITIES]: '#94a3b8',
   [CATEGORIES.OTHER]: '#64748b',
@@ -28,11 +28,11 @@ export const CATEGORY_WEIGHTS = {
   [CATEGORIES.STUDY]: 1.0,
   [CATEGORIES.DSA]: 1.0,
   [CATEGORIES.DEVELOPMENT]: 1.0,
-  [CATEGORIES.PRODUCTIVITY]: 0.8,
+  [CATEGORIES.PRODUCTIVITY]: 0.9,
   [CATEGORIES.UTILITIES]: 0.3,
   [CATEGORIES.OTHER]: 0.2,
-  [CATEGORIES.SOCIAL]: 0.1,
   [CATEGORIES.ENTERTAINMENT]: 0.05,
+  [CATEGORIES.TIMEPASS]: 0.05,
   [CATEGORIES.SHORT_VIDEO]: 0,
 };
 
@@ -45,7 +45,9 @@ export function isProductiveCategory(category) {
 }
 
 export function isDistractingCategory(category) {
-  return category === CATEGORIES.ENTERTAINMENT ||
-    category === CATEGORIES.SOCIAL ||
-    category === CATEGORIES.SHORT_VIDEO;
+  return (
+    category === CATEGORIES.ENTERTAINMENT ||
+    category === CATEGORIES.TIMEPASS ||
+    category === CATEGORIES.SHORT_VIDEO
+  );
 }
