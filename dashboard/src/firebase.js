@@ -53,7 +53,7 @@ if (live) {
   app = initializeApp(FIREBASE_CONFIG);
 } else {
   console.info(
-    'LifeIQ: Firebase keys not configured — running in DEMO MODE with local sample data. ' +
+    'LifeLensIQ: Firebase keys not configured — running in DEMO MODE with local sample data. ' +
       'Create dashboard/.env from .env.example and restart to go live.'
   );
 }

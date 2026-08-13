@@ -49,7 +49,25 @@ function flash(msg, ok = true) {
   setTimeout(() => (s.textContent = ''), 2500);
 }
 
+const THEME_KEY = 'lifelensiq_theme';
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+}
+
+async function initTheme() {
+  const { [THEME_KEY]: saved } = await chrome.storage.local.get(THEME_KEY);
+  applyTheme(saved === 'light' ? 'light' : 'dark');
+}
+
 async function main() {
+  await initTheme();
+  el('theme-btn').addEventListener('click', async () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    await chrome.storage.local.set({ [THEME_KEY]: next });
+  });
+
   const categorySel = el('category');
   for (const c of CATEGORY_KEYS) {
     const opt = document.createElement('option');

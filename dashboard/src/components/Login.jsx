@@ -57,9 +57,9 @@ export default function Login() {
     <div className="center">
       <div className="panel login">
         <div className="brand" style={{ marginBottom: 12 }}>
-          <span className="logo">LQ</span> LifeIQ
+          <span className="logo">LLIQ</span> LifeLensIQ
         </div>
-        <h2>LifeIQ Dashboard</h2>
+        <h2>LifeLensIQ Dashboard</h2>
         <p className="muted" style={{ marginBottom: 14 }}>
           Sign in with the same Firebase account used in the extension.
         </p>

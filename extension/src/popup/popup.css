@@ -1,12 +1,31 @@
 :root {
   --bg: #0f172a;
   --panel: #1e293b;
+  --panel-2: #27364a;
   --border: #334155;
   --text: #e2e8f0;
   --muted: #94a3b8;
   --accent: #22d3ee;
+  --grad: linear-gradient(135deg, #22d3ee, #818cf8);
   --ok: #4ade80;
   --danger: #f87171;
+  --input-bg: #1e293b;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme='light'] {
+  --bg: #eef2f7;
+  --panel: #ffffff;
+  --panel-2: #e8edf5;
+  --border: #d4dde8;
+  --text: #0f172a;
+  --muted: #5b6b80;
+  --accent: #0284c7;
+  --grad: linear-gradient(135deg, #0ea5e9, #6366f1);
+  --ok: #16a34a;
+  --danger: #dc2626;
+  --input-bg: #f8fafc;
+  --shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,9 +45,36 @@ header {
   padding: 12px 14px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 h1 { font-size: 15px; font-weight: 700; }
+
+.head-right {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.icon-btn {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 0;
+}
+.icon-btn:hover {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text);
+}
+.ico-moon { display: none; }
+html[data-theme='light'] .ico-sun { display: none; }
+html[data-theme='light'] .ico-moon { display: block; }
 
 .dot {
   width: 10px; height: 10px; border-radius: 50%;
@@ -61,7 +107,7 @@ section { padding: 12px 14px; }
   width: 34px;
   height: 18px;
   border-radius: 99px;
-  background: var(--panel);
+  background: var(--panel-2);
   border: 1px solid var(--border);
   position: relative;
   transition: background 0.15s ease;
@@ -115,16 +161,16 @@ section { padding: 12px 14px; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 
 button {
-  background: var(--accent);
-  color: #0f172a;
+  background: var(--grad);
+  color: #fff;
   border: none;
   border-radius: 6px;
   padding: 7px 10px;
   font-weight: 600;
   cursor: pointer;
 }
-button.secondary { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
-button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+button.danger { background: transparent; color: var(--danger); border: 1px solid rgba(248, 113, 113, 0.4); }
 
 input {
   width: 100%;
@@ -132,7 +178,7 @@ input {
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--input-bg);
   color: var(--text);
 }
 

@@ -10,6 +10,7 @@ import {
   getDocs,
 } from '../firebase.js';
 import { toCSV, toRawJSON, toStatsJSON, downloadBlob } from '../lib/export.js';
+import { buildMLDataset } from '../lib/ml.js';
 import { pad } from '../lib/stats.js';
 
 const PAGE = 1000;
@@ -77,19 +78,36 @@ export default function ExportPanel({ user }) {
   async function exportCSV() {
     const r = await ensureData();
     if (!r) return;
-    downloadBlob(toCSV(r.events), `lifeiq-events-${r.range.from}_${r.range.to}.csv`, 'text/csv');
+    downloadBlob(toCSV(r.events), `lifelensiq-events-${r.range.from}_${r.range.to}.csv`, 'text/csv');
   }
 
   async function exportJSON() {
     const r = await ensureData();
     if (!r) return;
-    downloadBlob(toRawJSON(r.events, r.range), `lifeiq-events-${r.range.from}_${r.range.to}.json`, 'application/json');
+    downloadBlob(toRawJSON(r.events, r.range), `lifelensiq-events-${r.range.from}_${r.range.to}.json`, 'application/json');
   }
 
   async function exportStats() {
     const r = await ensureData();
     if (!r) return;
-    downloadBlob(toStatsJSON(r.events, r.range), `lifeiq-stats-${r.range.from}_${r.range.to}.json`, 'application/json');
+    downloadBlob(toStatsJSON(r.events, r.range), `lifelensiq-stats-${r.range.from}_${r.range.to}.json`, 'application/json');
+  }
+
+  async function exportML() {
+    const r = await ensureData();
+    if (!r) return;
+    const ds = buildMLDataset(r.events, r.range);
+    const base = `lifelensiq-ml-${r.range.from}_${r.range.to}`;
+    const files = [
+      [ds.trainCSV, `${base}-train.csv`, 'text/csv'],
+      [ds.valCSV, `${base}-val.csv`, 'text/csv'],
+      [ds.testCSV, `${base}-test.csv`, 'text/csv'],
+      [ds.manifest, `${base}-manifest.json`, 'application/json'],
+    ];
+    for (const [content, name, mime] of files) {
+      downloadBlob(content, name, mime);
+      await new Promise((res) => setTimeout(res, 400));
+    }
   }
 
   return (
@@ -134,6 +152,16 @@ export default function ExportPanel({ user }) {
         <button onClick={exportJSON} disabled={busy}>Download JSON (raw events)</button>
         <button onClick={exportStats} disabled={busy}>Download JSON (aggregated stats)</button>
       </div>
+      <div className="btn-row" style={{ marginTop: 8 }}>
+        <button className="secondary" onClick={exportML} disabled={busy}>
+          Download ML dataset (train / val / test CSV + manifest)
+        </button>
+      </div>
+      <p className="hint">
+        ML dataset: chronologically engineered rows (hour, day_of_week, day_segment, duration,
+        gap_seconds, prev_category, is_productive…), split 70/15/15 in time order to avoid
+        temporal leakage. The manifest JSON documents the schema and class distribution per split.
+      </p>
       <p className="hint">
         Note: if a date range query fails, create the suggested composite index (ts asc, ts desc)
         in the Firebase console — the link appears in the error.

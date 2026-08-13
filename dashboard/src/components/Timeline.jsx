@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { dayKeyLocal, eventsOnDay, formatDuration, formatTime, pad } from '../lib/stats.js';
 import { categoryColor, CATEGORY_KEYS } from '../lib/categories.js';
+import SiteDrilldown from './SiteDrilldown.jsx';
 
 const PAGE = 200;
 
@@ -11,6 +12,7 @@ export default function Timeline({ events }) {
   const [category, setCategory] = useState('');
   const [type, setType] = useState('');
   const [query, setQuery] = useState('');
+  const [drilldown, setDrilldown] = useState('');
 
   const dayEvents = useMemo(() => eventsOnDay(events, date), [events, date]);
   const typeKeys = useMemo(() => {
@@ -112,10 +114,17 @@ export default function Timeline({ events }) {
                 {ev.eventType !== 'tab_active' && <span> · <b>{ev.eventType}</b></span>}
               </div>
             </div>
-            <div className="dur">{formatDuration(ev.durationSeconds)}</div>
+            <div className="dur">
+              {formatDuration(ev.durationSeconds)}
+              <button className="mini" onClick={() => setDrilldown(ev.domain)} title={`Analyse ${ev.domain}`}>Analyse</button>
+            </div>
           </div>
         ))}
       </div>
+
+      {drilldown && (
+        <SiteDrilldown events={events} domain={drilldown} onClose={() => setDrilldown('')} />
+      )}
 
       {filtered.length > shown && (
         <div className="btn-row">

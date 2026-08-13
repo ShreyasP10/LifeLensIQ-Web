@@ -10,6 +10,7 @@ import {
   Pie,
   Cell,
   Legend,
+  Sector,
 } from 'recharts';
 import {
   aggregate,
@@ -30,6 +31,8 @@ import {
   isDistractingCategory,
 } from '../lib/categories.js';
 import { todayClasses, currentClass } from '../lib/timetable.js';
+import Insights from './Insights.jsx';
+import Heatmap from './Heatmap.jsx';
 
 const RANGES = [
   ['today', 'Today'],
@@ -47,6 +50,7 @@ function dayLabel(key, range) {
 export default function Overview({ events, settings, timetable }) {
   const now = Date.now();
   const [range, setRange] = useState('7d');
+const [activeSlice, setActiveSlice] = useState(null);
 
   const rangeDays = range === 'today' ? 1 : range === '30d' ? 30 : 7;
   const todayKey = dayKeyLocal(new Date());
@@ -131,8 +135,8 @@ export default function Overview({ events, settings, timetable }) {
                 stroke="#38bdf8"
                 strokeWidth="13" fill="none"
                 strokeLinecap="round"
+                className="ring-fg"
                 strokeDasharray={`${(cur.score / 100) * 2 * Math.PI * 64} ${2 * Math.PI * 64}`}
-                style={{ filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.5))' }}
               />
             </svg>
             <div className="val">
@@ -175,6 +179,8 @@ export default function Overview({ events, settings, timetable }) {
         </div>
       </div>
 
+      <Insights events={events} days={range === 'today' ? 1 : rangeDays} />
+
       {range === 'today' && classes.length > 0 && (
         <div className="panel">
           <h2>Today's Classes (from timetable)</h2>
@@ -195,28 +201,6 @@ export default function Overview({ events, settings, timetable }) {
           </table>
         </div>
       )}
-
-      <div className="grid">
-        <div className="card">
-          <h3>Events ({rangeLabel})</h3>
-          <div className="big">{cur.count}</div>
-        </div>
-        <div className="card">
-          <h3>Top domain ({rangeLabel})</h3>
-          <div className="big" style={{ fontSize: 18 }}>{topDomains[0]?.name || '—'}</div>
-          <div className="sub">{topDomains[0] ? formatDuration(topDomains[0].seconds) : 'no data'}</div>
-        </div>
-        <div className="card">
-          <h3>Categories active</h3>
-          <div className="big">{pieData.length}</div>
-          <div className="sub">of {CATEGORY_KEYS.length}</div>
-        </div>
-        <div className="card">
-          <h3>Focus streak</h3>
-          <div className="big">{streak}<small style={{ fontSize: 13 }}> days</small></div>
-          <div className="sub">consecutive days with activity</div>
-        </div>
-      </div>
 
       <div className="grid">
         <div className="card" style={{ gridColumn: 'span 2' }}>
@@ -256,9 +240,27 @@ export default function Overview({ events, settings, timetable }) {
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={80} paddingAngle={2}>
-                  {pieData.map((d) => (
-                    <Cell key={d.name} fill={categoryColor(d.name)} />
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={40}
+                  outerRadius={80}
+                  paddingAngle={2}
+                  className="pie-hover"
+                  activeIndex={activeSlice}
+                  activeShape={(p) => (
+                    <Sector {...p} outerRadius={p.outerRadius + 8} />
+                  )}
+                  onMouseEnter={(_, i) => setActiveSlice(i)}
+                  onMouseLeave={() => setActiveSlice(null)}
+                >
+                  {pieData.map((d, i) => (
+                    <Cell
+                      key={d.name}
+                      fill={categoryColor(d.name)}
+                      opacity={activeSlice === null || activeSlice === i ? 1 : 0.35}
+                    />
                   ))}
                 </Pie>
                 <Tooltip
@@ -276,6 +278,33 @@ export default function Overview({ events, settings, timetable }) {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="grid">
+        <div className="card">
+          <h3>Events ({rangeLabel})</h3>
+          <div className="big">{cur.count}</div>
+        </div>
+        <div className="card">
+          <h3>Top domain ({rangeLabel})</h3>
+          <div className="big" style={{ fontSize: 18 }}>{topDomains[0]?.name || '—'}</div>
+          <div className="sub">{topDomains[0] ? formatDuration(topDomains[0].seconds) : 'no data'}</div>
+        </div>
+        <div className="card">
+          <h3>Categories active</h3>
+          <div className="big">{pieData.length}</div>
+          <div className="sub">of {CATEGORY_KEYS.length}</div>
+        </div>
+        <div className="card">
+          <h3>Focus streak</h3>
+          <div className="big">{streak}<small style={{ fontSize: 13 }}> days</small></div>
+          <div className="sub">consecutive days with activity</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3>Activity calendar — last 365 days</h3>
+        <Heatmap events={events} days={365} />
       </div>
     </div>
   );

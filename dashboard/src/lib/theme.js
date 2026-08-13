@@ -1,4 +1,4 @@
-const THEME_KEY = 'lifeiq.theme';
+const THEME_KEY = 'lifelensiq.theme';
 
 export function getSavedTheme() {
   try {

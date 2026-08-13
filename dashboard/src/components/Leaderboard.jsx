@@ -5,7 +5,6 @@ import {
   collection,
   query,
   orderBy,
-  limit,
   onSnapshot,
   doc,
   setDoc,
@@ -19,7 +18,7 @@ export default function Leaderboard({ user, events }) {
   const [queryText, setQueryText] = useState('');
 
   useEffect(() => {
-    const q = query(collection(db, 'leaderboard'), orderBy('score', 'desc'), limit(50));
+    const q = query(collection(db, 'leaderboard'), orderBy('score', 'desc'));
     const unsub = onSnapshot(q, (snap) => setRows(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))));
     return unsub;
   }, []);
@@ -39,7 +38,7 @@ export default function Leaderboard({ user, events }) {
       if (sortBy === 'active') return (b.totalSeconds || 0) - (a.totalSeconds || 0);
       return (b.score || 0) - (a.score || 0);
     });
-    return sorted.slice(0, 50);
+    return sorted;
   }, [rows, sortBy, queryText]);
 
   async function refreshMyScore() {

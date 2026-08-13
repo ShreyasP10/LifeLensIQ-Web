@@ -1,5 +1,5 @@
-const DB_KEY = 'lifeiq.demo.db.v1';
-const SESSION_KEY = 'lifeiq.demo.session.v1';
+const DB_KEY = 'lifelensiq.demo.db.v1';
+const SESSION_KEY = 'lifelensiq.demo.session.v1';
 
 function loadLS(key, fallback) {
   try {
@@ -229,7 +229,7 @@ function persist() {
 
 export const DEMO_USER = {
   uid: 'demo001',
-  email: 'demo@student.lifeiq',
+  email: 'demo@student.lifelensiq',
   displayName: 'Demo Student',
 };
 

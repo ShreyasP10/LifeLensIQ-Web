@@ -163,7 +163,7 @@ Editable list of `domain → category` overrides. Saved to `users/{uid}/settings
 
 ```js
 export const chromeStoragePersistence = {
-  type: 'lifeiq-chrome-storage',
+  type: 'lifelensiq-chrome-storage',
   async _get() { return (await chrome.storage.local.get('authToken')).authToken; },
   async _set(token, user) { await chrome.storage.local.set({ authToken: token, authUser: user }); },
   async _remove() { await chrome.storage.local.remove(['authToken', 'authUser']); },
@@ -223,13 +223,13 @@ weights: Study 1.0, DSA 1.0, Development 1.0, Productivity 0.8,
 1. Fetch events in the range paginated (5000/page via `startAfter`).
 2. CSV: fixed column order, `metadata` flattened to JSON string; Papa `unparse`.
 3. JSON: `JSON.stringify({exportedAt, range, schemaVersion, events}, null, 2)`.
-4. Blob download with `Content-Disposition` filename `lifeiq-events-YYYY-MM-DD_YYYY-MM-DD.csv/.json`.
+4. Blob download with `Content-Disposition` filename `lifelensiq-events-YYYY-MM-DD_YYYY-MM-DD.csv/.json`.
 
 ---
 
 ## 6. Firebase Project Setup (required before anything works)
 
-1. console.firebase.google.com → Add project `lifeiq` (or any name).
+1. console.firebase.google.com → Add project `lifelensiq` (or any name).
 2. Enable **Authentication**: Email/Password + Google providers.
 3. Enable **Cloud Firestore** (native, `asia-south1` or nearest region).
 4. Register a **Web app** → copy `firebaseConfig` into:

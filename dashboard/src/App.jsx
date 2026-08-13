@@ -19,6 +19,7 @@ import ExportPanel from './components/ExportPanel.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
 import TimetablePage from './components/TimetablePage.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
+import ManualEntry from './components/ManualEntry.jsx';
 
 const TABS = [
   ['overview', 'Overview'],
@@ -26,6 +27,7 @@ const TABS = [
   ['export', 'Export'],
   ['leaderboard', 'Leaderboard'],
   ['timetable', 'Timetable'],
+  ['log', 'Log'],
   ['settings', 'Settings'],
 ];
 
@@ -90,7 +92,7 @@ function Dashboard({ user }) {
     <div className="app">
       <nav>
         <div className="brand">
-          <span className="logo">LQ</span> LifeIQ
+          <span className="logo">LLIQ</span> LifeLensIQ
         </div>
         <div className="tabs">
           {TABS.map(([key, label]) => (
@@ -146,6 +148,7 @@ function Dashboard({ user }) {
         {tab === 'export' && <ExportPanel user={user} />}
         {tab === 'leaderboard' && <Leaderboard user={user} events={events || []} />}
         {tab === 'timetable' && <TimetablePage user={user} timetable={timetable} />}
+        {tab === 'log' && <ManualEntry user={user} />}
         {tab === 'settings' && <SettingsPage user={user} settings={settings} />}
       </main>
     </div>

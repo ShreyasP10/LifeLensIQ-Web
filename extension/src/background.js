@@ -4,12 +4,11 @@ import { buildEvent, makeEventId } from './shared/schema.js';
 import { getAuth, onAuthStateChanged } from 'firebase/auth/web-extension';
 import { getFirestore, writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
 
-const SESSION_KEY = 'lifeiq_session';
-const BUFFER_KEY = 'lifeiq_buffer';
-const META_KEY = 'lifeiq_meta';
-const OVERRIDES_KEY = 'categoryOverrides';
-const PAUSE_KEY = 'lifeiq_paused';
-const LAST_SYNC_KEY = 'lifeiq_last_sync';
+const SESSION_KEY = 'lifelensiq_session';
+const BUFFER_KEY = 'lifelensiq_buffer';
+const META_KEY = 'lifelensiq_meta';
+const PAUSE_KEY = 'lifelensiq_paused';
+const LAST_SYNC_KEY = 'lifelensiq_last_sync';
 
 const MIN_SEGMENT_MS = 5000;
 const MERGE_GAP_MS = 45000;
@@ -42,6 +41,17 @@ async function getBuffer() {
 }
 async function setBuffer(b) {
   await chrome.storage.local.set({ [BUFFER_KEY]: b.slice(-MAX_BUFFER) });
+}
+async function safeSetBuffer(b) {
+  try {
+    await setBuffer(b);
+  } catch {
+    try {
+      await setBuffer(b.slice(-2000));
+    } catch {
+      await chrome.storage.local.remove(BUFFER_KEY);
+    }
+  }
 }
 async function getOverrides() {
   return (await chrome.storage.local.get(OVERRIDES_KEY))[OVERRIDES_KEY] || {};
@@ -107,6 +117,9 @@ function openSegment(tab) {
     s.eventType = 'writing_session';
   }
   s.category = s.category || classify(domain, path, {});
+  if (s.eventType === 'pdf_view' && s.category === CATEGORIES.OTHER) {
+    s.category = CATEGORIES.STUDY;
+  }
   return s;
 }
 
@@ -119,6 +132,9 @@ async function flushSegment() {
   if (durationMs < MIN_SEGMENT_MS) return;
   s.lastTs = now;
   s.category = classify(s.domain, s.path, await getOverrides());
+  if (s.eventType === 'pdf_view' && (s.category === CATEGORIES.OTHER || !s.category)) {
+    s.category = CATEGORIES.STUDY;
+  }
   if (s.eventType === 'short_video') {
     s.shorts.seconds = Math.round(durationMs / 1000);
   }
@@ -143,7 +159,7 @@ async function flushSegment() {
   } else {
     buffer.push(ev);
   }
-  await setBuffer(buffer);
+  await safeSetBuffer(buffer);
   await chrome.storage.local.set({ lastEventTs: now });
 }
 
@@ -260,14 +276,14 @@ async function syncBuffer() {
       committedIds.push(...chunk.map((e) => e.id));
     } catch (err) {
       syncFailures += 1;
-      console.warn('LifeIQ sync chunk failed', err);
+      console.warn('LifeLensIQ sync chunk failed', err);
       break;
     }
   }
 
   if (committedIds.length) {
     const remaining = buffer.filter((e) => !committedIds.includes(e.id));
-    await setBuffer(remaining);
+    await safeSetBuffer(remaining);
     syncFailures = 0;
     lastSyncAttempt = 0;
     await setLastSyncTs();
@@ -302,7 +318,7 @@ function init() {
         authReady = true;
         syncBuffer();
       } catch (err) {
-        console.warn('LifeIQ firebase init failed:', err.message);
+        console.warn('LifeLensIQ firebase init failed:', err.message);
       }
     })();
   }

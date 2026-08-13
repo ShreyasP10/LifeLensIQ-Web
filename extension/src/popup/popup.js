@@ -81,11 +81,17 @@ function renderCategories(byCat) {
 
 async function getState() {
   try {
-    return await chrome.runtime.sendMessage({ type: 'getState' });
+    const res = await chrome.runtime.sendMessage({ type: 'getState' });
+    if (res && typeof res.pending === 'number' && typeof res.paused === 'boolean') {
+      return res;
+    }
+    return null;
   } catch {
     return null;
   }
 }
+
+const FALLBACK_STATE = { paused: false, online: true, pending: 0, lastSyncTs: null, session: null };
 
 async function refresh() {
   const user = auth ? auth.currentUser : null;
@@ -98,11 +104,11 @@ async function refresh() {
 
   el('user-email').textContent = user.email || user.uid;
 
-  setDot(state && state.paused ? 'off' : 'on');
-  el('pause-toggle').checked = Boolean(state && state.paused);
-  el('pause-label').textContent = state && state.paused ? 'Paused' : 'On';
+  const s = state || FALLBACK_STATE;
+  setDot(s.paused ? 'off' : 'on');
+  el('pause-toggle').checked = Boolean(s.paused);
+  el('pause-label').textContent = s.paused ? 'Paused' : 'On';
 
-  const s = state || { session: null, pending: 0, lastSyncTs: null, online: true, paused: false };
   if (s.session) {
     el('live-session').textContent = `${s.session.domain || ''} · ${fmtElapsed(s.session.startTs)}`;
     el('live-session').title = s.session.title || '';
@@ -111,15 +117,35 @@ async function refresh() {
     el('live-session').title = '';
   }
 
-  const { lifeiq_buffer: buffer = [] } = await chrome.storage.local.get('lifeiq_buffer');
+  const { lifelensiq_buffer: buffer = [] } = await chrome.storage.local.get('lifelensiq_buffer');
   const today = todaySummary(buffer);
   el('today-active').textContent = `${Math.round(today.seconds / 60)} min`;
-  el('pending-sync').textContent = `${s.pending}${state && !state.online ? ' (offline)' : ''}`;
-  el('last-sync').textContent = fmtAgo(s.lastSyncTs);
+  el('pending-sync').textContent = state
+    ? `${s.pending}${!s.online ? ' (offline)' : ''}`
+    : '— (reload extension)';
+  el('last-sync').textContent = state ? fmtAgo(s.lastSyncTs) : '—';
   renderCategories(today.byCat);
 }
 
+const THEME_KEY = 'lifelensiq_theme';
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+}
+
+async function initTheme() {
+  const { [THEME_KEY]: saved } = await chrome.storage.local.get(THEME_KEY);
+  applyTheme(saved === 'light' ? 'light' : 'dark');
+}
+
 async function main() {
+  await initTheme();
+  el('theme-btn').addEventListener('click', async () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    await chrome.storage.local.set({ [THEME_KEY]: next });
+  });
+
   if (!isFirebaseConfigured()) {
     el('auth-view').classList.remove('hidden');
     el('auth-error').classList.remove('hidden');
