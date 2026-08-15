@@ -17,6 +17,7 @@ import { detectAnomalies } from './lib/insights.js';
 import Login from './components/Login.jsx';
 import Overview from './components/Overview.jsx';
 import Timeline from './components/Timeline.jsx';
+import Trends from './components/Trends.jsx';
 import ExportPanel from './components/ExportPanel.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
 import TimetablePage from './components/TimetablePage.jsx';
@@ -25,6 +26,7 @@ import ManualEntry from './components/ManualEntry.jsx';
 
 const TABS = [
   ['overview', 'Overview'],
+  ['trends', 'Trends'],
   ['timeline', 'Timeline'],
   ['export', 'Export'],
   ['leaderboard', 'Leaderboard'],
@@ -58,6 +60,7 @@ function Dashboard({ user }) {
   const [dataError, setDataError] = useState('');
   const [light, setLight] = useState(isLight());
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [deviceFilter, setDeviceFilter] = useState('all');
 
   const anomalies = useMemo(
     () => (events ? detectAnomalies(events) : []),
@@ -65,6 +68,27 @@ function Dashboard({ user }) {
   );
   const [dismissed, setDismissed] = useState({});
   const activeAlerts = anomalies.filter((a) => !dismissed[a.title]);
+
+  const eventDevice = (ev) => ev.deviceId || (ev.device === 'web' ? 'web' : 'unknown');
+
+  const deviceOptions = useMemo(() => {
+    const set = new Set();
+    for (const ev of events || []) set.add(eventDevice(ev));
+    return ['all', ...set];
+  }, [events]);
+
+  const deviceLabel = (id) => {
+    if (id === 'all') return 'All devices';
+    if (id === 'web') return 'Website';
+    if (id === 'unknown') return 'Unknown';
+    return `Android · ${id.slice(0, 4)}`;
+  };
+
+  const filteredEvents = useMemo(() => {
+    if (!events) return [];
+    if (deviceFilter === 'all') return events;
+    return events.filter((ev) => eventDevice(ev) === deviceFilter);
+  }, [events, deviceFilter]);
 
   useEffect(() => {
     const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));
@@ -182,12 +206,32 @@ function Dashboard({ user }) {
       )}
 
       <main>
+        <div className="device-filter">
+          {deviceOptions.map((id) => (
+            <button
+              key={id}
+              className={deviceFilter === id ? 'active' : ''}
+              onClick={() => setDeviceFilter(id)}
+              title="Filter every view by the device that wrote the events"
+            >
+              {deviceLabel(id)}
+            </button>
+          ))}
+          <span className="muted" style={{ fontSize: 12 }}>device source filter</span>
+        </div>
+
         {tab === 'overview' && (
-          <Overview user={user} events={events || []} settings={settings} timetable={timetable} />
+          <Overview
+            user={user}
+            events={filteredEvents}
+            settings={settings}
+            timetable={timetable}
+          />
         )}
-        {tab === 'timeline' && <Timeline events={events || []} />}
-        {tab === 'export' && <ExportPanel user={user} />}
-        {tab === 'leaderboard' && <Leaderboard user={user} events={events || []} />}
+        {tab === 'trends' && <Trends events={filteredEvents} />}
+        {tab === 'timeline' && <Timeline events={filteredEvents} />}
+        {tab === 'export' && <ExportPanel user={user} deviceFilter={deviceFilter} />}
+        {tab === 'leaderboard' && <Leaderboard user={user} events={filteredEvents} />}
         {tab === 'timetable' && <TimetablePage user={user} timetable={timetable} />}
         {tab === 'log' && <ManualEntry user={user} />}
         {tab === 'settings' && <SettingsPage user={user} settings={settings} events={events || []} />}

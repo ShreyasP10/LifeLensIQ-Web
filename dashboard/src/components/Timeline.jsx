@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { dayKeyLocal, eventsOnDay, formatDuration, formatTime, pad, deepFocusSessions } from '../lib/stats.js';
 import { categoryColor, CATEGORY_KEYS } from '../lib/categories.js';
 import SiteDrilldown from './SiteDrilldown.jsx';
+import WakeSleepCard from './WakeSleepCard.jsx';
 
 const PAGE = 200;
 
@@ -113,6 +114,8 @@ export default function Timeline({ events }) {
         ))}
       </div>
 
+      <WakeSleepCard events={events} day={date} />
+
       <div className="event-list">
         {visible.length === 0 && <p className="muted">No events on this day with the current filters.</p>}
         {visible.map((ev) => (
@@ -121,6 +124,12 @@ export default function Timeline({ events }) {
             <div className="meta">
               <div className="domain">
                 {ev.domain} <span className="tag">{ev.category}</span>
+                {ev.eventType === 'STUDY_SESSION' && ev.metadata && ev.metadata.locationType === 'MANUAL' && (
+                  <span className="tag manual" title="Quick-logged on this device">manual</span>
+                )}
+                {ev.eventType === 'STUDY_SESSION' && ev.metadata && ev.metadata.locationType === 'FOCUS' && (
+                  <span className="tag focus" title="Focus mode session">focus 🎯</span>
+                )}
                 {deepIds.has(ev.id) && (
                   <span className="tag deep" title="30+ min on one site without a 5-min gap">deep focus 🎯</span>
                 )}

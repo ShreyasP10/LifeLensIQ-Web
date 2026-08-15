@@ -1,8 +1,14 @@
+import { CATEGORY_KEYS } from './categories.js';
+
 export const DEVICE_WEB = 'web';
 export const SCHEMA_VERSION = 1;
 
 export function makeEventId() {
   return crypto.randomUUID();
+}
+
+export function normalizeCategory(category) {
+  return CATEGORY_KEYS.includes(category) ? category : 'Other';
 }
 
 export function normalizeEvent(doc) {
@@ -16,12 +22,13 @@ export function normalizeEvent(doc) {
     timestamp: doc.timestamp ?? ts,
     endTs: Number(doc.endTs) || ts + durationSeconds * 1000,
     durationSeconds,
-    category: doc.category || 'Other',
+    category: normalizeCategory(doc.category || 'Other'),
     domain: doc.domain || '',
     path: doc.path || '',
     title: doc.title || '',
     eventType: doc.eventType || 'tab_active',
     device: doc.device || DEVICE_WEB,
+    deviceId: doc.deviceId || (doc.device === 'web' ? DEVICE_WEB : ''),
     schemaVersion: doc.schemaVersion ?? SCHEMA_VERSION,
     metadata: doc.metadata || {},
     userId: doc.userId || '',
@@ -35,12 +42,13 @@ export function buildWebEvent({ ts, endTs, durationSeconds, domain, path, title,
     eventId,
     userId,
     device: DEVICE_WEB,
+    deviceId: DEVICE_WEB,
     ts,
     timestamp: ts,
     endTs,
     durationSeconds,
     eventType,
-    category,
+    category: normalizeCategory(category),
     domain: domain || '',
     path: path || '',
     title: title || '',

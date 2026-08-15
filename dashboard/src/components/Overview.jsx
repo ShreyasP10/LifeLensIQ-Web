@@ -29,6 +29,7 @@ import {
   weekOverWeek,
   deepFocusSessions,
   formatTime,
+  focusSessions,
 } from '../lib/stats.js';
 import {
   categoryColor,
@@ -39,6 +40,7 @@ import {
 import { todayClasses, currentClass } from '../lib/timetable.js';
 import Insights from './Insights.jsx';
 import Heatmap from './Heatmap.jsx';
+import WakeSleepCard from './WakeSleepCard.jsx';
 
 const RANGES = [
   ['today', 'Today'],
@@ -116,6 +118,7 @@ const [activeSlice, setActiveSlice] = useState(null);
     () => (range === 'today' ? summary.deepSessions : deepFocusSessions(rangeEvents).length),
     [range, summary, rangeEvents]
   );
+  const focus = useMemo(() => focusSessions(rangeEvents), [rangeEvents]);
   const weekdayBars = useMemo(() => {
     const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const data = labels.map((label) => ({ label, productive: 0, neutral: 0, distracting: 0 }));
@@ -181,6 +184,8 @@ const [activeSlice, setActiveSlice] = useState(null);
           )}
         </div>
       )}
+
+      {range === 'today' && <WakeSleepCard events={events} day={todayKey} />}
 
       <div className="panel">
         <div className="head-row">
@@ -361,6 +366,13 @@ const [activeSlice, setActiveSlice] = useState(null);
           <h3>Top domain ({rangeLabel})</h3>
           <div className="big" style={{ fontSize: 18 }}>{topDomains[0]?.name || '—'}</div>
           <div className="sub">{topDomains[0] ? formatDuration(topDomains[0].seconds) : 'no data'}</div>
+        </div>
+        <div className="card">
+          <h3>Focus sessions (app)</h3>
+          <div className="big">{focus.count}</div>
+          <div className="sub">
+            {focus.minutes > 0 ? `${formatDuration(focus.minutes * 60)} total · longest ${formatDuration(focus.longestSeconds)}` : 'locationType = FOCUS'}
+          </div>
         </div>
         <div className="card">
           <h3>Deep focus sessions</h3>
