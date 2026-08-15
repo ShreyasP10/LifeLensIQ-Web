@@ -9,6 +9,7 @@ const BUFFER_KEY = 'lifelensiq_buffer';
 const META_KEY = 'lifelensiq_meta';
 const PAUSE_KEY = 'lifelensiq_paused';
 const LAST_SYNC_KEY = 'lifelensiq_last_sync';
+const FOCUS_KEY = 'lifelensiq_focus';
 
 const MIN_SEGMENT_MS = 5000;
 const MERGE_GAP_MS = 45000;
@@ -61,6 +62,20 @@ async function getPaused() {
 }
 async function setLastSyncTs() {
   await chrome.storage.local.set({ [LAST_SYNC_KEY]: Date.now() });
+}
+
+/* ---------------- focus mode ---------------- */
+
+async function getFocus() {
+  return (await chrome.storage.local.get(FOCUS_KEY))[FOCUS_KEY] || { active: false, allowlist: [], startTs: 0 };
+}
+async function setFocus(f) {
+  await chrome.storage.local.set({ [FOCUS_KEY]: f });
+}
+function isFocusBlocked(domain, focus) {
+  if (!focus || !focus.active || !domain) return false;
+  const list = focus.allowlist || [];
+  return !list.some((d) => domain === d || domain.endsWith('.' + d));
 }
 
 /* ---------------- url helpers ---------------- */
@@ -139,6 +154,8 @@ async function flushSegment() {
     s.shorts.seconds = Math.round(durationMs / 1000);
   }
   s.userId = currentUser?.uid || '';
+  const focus = await getFocus();
+  s.focus = Boolean(focus.active && !isFocusBlocked(s.domain, focus));
   const ev = buildEvent(s);
   const buffer = await getBuffer();
 
@@ -167,6 +184,16 @@ async function flushSegment() {
 async function startSegmentForTab(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (!tab || !tab.url || !isHttp(tab.url)) return null;
+  const focus = await getFocus();
+  const domain = parseDomain(tab.url);
+  if (isFocusBlocked(domain, focus)) {
+    await chrome.tabs
+      .update(tabId, {
+        url: chrome.runtime.getURL(`focus.html?domain=${encodeURIComponent(domain)}`),
+      })
+      .catch(() => {});
+    return null;
+  }
   const s = openSegment(tab);
   await setSession(s);
   return s;
@@ -244,6 +271,28 @@ async function handleTypingBurst(tabId, count) {
   }
   s.lastTs = Date.now();
   await setSession(s);
+}
+
+async function recordPomodoro(minutes, cycles) {
+  const now = Date.now();
+  const session = {
+    eventId: makeEventId(),
+    domain: 'pomodoro',
+    path: '/pomodoro',
+    title: `Pomodoro ×${cycles}`,
+    eventType: 'POMODORO',
+    category: CATEGORIES.STUDY,
+    startTs: now - minutes * 60000,
+    lastTs: now,
+    typingBursts: 0,
+    shorts: { views: 0, seconds: 0, lastUrl: '' },
+    focus: true,
+  };
+  const ev = buildEvent(session);
+  const buffer = await getBuffer();
+  buffer.push(ev);
+  await safeSetBuffer(buffer);
+  await syncBuffer();
 }
 
 /* ---------------- firestore sync ---------------- */
@@ -430,6 +479,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.storage.local.set({ [PAUSE_KEY]: Boolean(msg.paused) });
     if (msg.paused) flushSegment();
     sendResponse({ ok: true });
+  } else if (msg.type === 'getFocusState') {
+    getFocus().then((f) =>
+      sendResponse({ active: Boolean(f.active), allowlist: f.allowlist || [], startTs: f.startTs || 0 })
+    );
+    return true;
+  } else if (msg.type === 'startFocus') {
+    (async () => {
+      const list = (msg.allowlist || [])
+        .map((d) => String(d).trim().toLowerCase().replace(/^www\./, ''))
+        .filter(Boolean);
+      await setFocus({ active: true, allowlist: list, startTs: Date.now() });
+      sendResponse({ ok: true });
+    })();
+    return true;
+  } else if (msg.type === 'stopFocus') {
+    (async () => {
+      const cur = await getFocus();
+      await setFocus({ active: false, allowlist: cur.allowlist || [], startTs: 0 });
+      sendResponse({ ok: true });
+    })();
+    return true;
+  } else if (msg.type === 'pomodoroDone') {
+    recordPomodoro(msg.minutes || 25, msg.cycles || 1).then(() => sendResponse({ ok: true }));
+    return true;
   }
   sendResponse({ ok: true });
   return false;

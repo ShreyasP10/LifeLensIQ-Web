@@ -186,3 +186,18 @@ input {
 .error { color: var(--danger); margin-top: 6px; }
 .hidden { display: none; }
 footer { padding: 10px 14px; border-top: 1px solid var(--border); font-size: 11px; }
+.section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.sec-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; }
+#focus-allowlist { width: 100%; margin-top: 8px; }
+.focus-on { color: var(--ok); }
+.focus-off { color: var(--muted); }
+button.accent { background: var(--grad); color: #fff; }
+
+.pomo-display { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+#pomo-time { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#pomo-phase { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+.nudge-line { display: flex; justify-content: space-between; font-size: 12px; margin: 6px 0 3px; }
+.nudge-bar { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
+.nudge-bar span { display: block; height: 100%; border-radius: 3px; }
+.nudge-msg { font-size: 11px; margin-top: 6px; }

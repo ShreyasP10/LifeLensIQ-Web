@@ -8,6 +8,7 @@ import {
   mlManifest,
   rowsToCSV,
   buildMLDataset,
+  predictFocusWindow,
 } from '../ml.js';
 
 const ev = (id, ts, durationSeconds, category, overrides = {}) => ({
@@ -167,5 +168,58 @@ describe('mlManifest / rowsToCSV / buildMLDataset', () => {
   it('rowsToCSV matches ML_COLUMNS header for arbitrary rows', () => {
     const csv = rowsToCSV([{ id: 'x', category: 'Study' }]);
     expect(csv.trim().split(/\r?\n/)[0].split(',')).toEqual(ML_COLUMNS);
+  });
+});
+describe('predictFocusWindow', () => {
+  const now = new Date(2026, 7, 11, 12).getTime();
+  const day = 86400000;
+
+  function at(daysBack, hour) {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - daysBack);
+    d.setHours(hour, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function seedEvents() {
+    const events = [];
+    for (let d = 1; d <= 5; d++) {
+      for (let h = 8; h <= 10; h++) {
+        const t = at(d, h);
+        events.push({
+          id: `p${d}-${h}`,
+          ts: t,
+          endTs: t + 3500000,
+          durationSeconds: 3500,
+          domain: 'leetcode.com',
+          category: 'Study',
+          eventType: 'tab_active',
+        });
+      }
+    }
+    return events;
+  }
+
+  it('predicts the 3-hour window with the most productive time', () => {
+    const events = seedEvents();
+    events.push({
+      id: 'junk',
+      ts: now - 300000,
+      endTs: now - 300000 + 600000,
+      durationSeconds: 600,
+      domain: 'youtube.com',
+      category: 'Entertainment',
+      eventType: 'tab_active',
+    });
+    const p = predictFocusWindow(events, { now });
+    expect(p).not.toBeNull();
+    expect(p.start).toBe(8);
+    expect(p.end).toBe(11);
+    expect(p.confidence).toBeGreaterThan(0);
+  });
+
+  it('returns null with too little data', () => {
+    expect(predictFocusWindow([], { now })).toBeNull();
   });
 });

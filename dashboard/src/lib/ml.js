@@ -160,3 +160,29 @@ export function buildMLDataset(events, range) {
     testCSV: rowsToCSV(split.test),
   };
 }
+
+export function predictFocusWindow(events, { trainDays = 14, windowHours = 3, now = Date.now() } = {}) {
+  const rows = engineerFeatures(events).filter(
+    (r) => r.ts >= now - trainDays * 86400000
+  );
+  if (rows.length < 7) return null;
+  const hourly = new Array(24).fill(0);
+  for (const r of rows) {
+    hourly[r.hour] += r.duration_seconds * (CATEGORY_WEIGHTS[r.category] ?? 0.2);
+  }
+  let best = { start: 0, score: 0 };
+  for (let h = 0; h <= 24 - windowHours; h++) {
+    let score = 0;
+    for (let k = 0; k < windowHours; k++) score += hourly[h + k];
+    if (score > best.score) best = { start: h, score };
+  }
+  if (best.score <= 0) return null;
+  return {
+    start: best.start,
+    end: best.start + windowHours,
+    score: Math.round(best.score / 60),
+    trainDays,
+    rows: rows.length,
+    confidence: Math.min(100, Math.round((best.score / hourly.reduce((a, s) => a + s, 1)) * 100)),
+  };
+}

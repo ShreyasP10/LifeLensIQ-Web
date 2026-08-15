@@ -1,1 +1,51 @@
-{  "manifest_version": 3,  "name": "LifeLensIQ Tracker",  "version": "0.3.0",  "description": "Passive browser activity tracker for LifeLensIQ personal analytics (prototype).",  "permissions": ["storage", "tabs", "idle", "alarms"],  "host_permissions": ["<all_urls>"],  "background": {    "service_worker": "background.js"  },  "action": {    "default_popup": "popup/popup.html",    "default_title": "LifeLensIQ Tracker",    "default_icon": {      "16": "icons/icon16.png",      "48": "icons/icon48.png",      "128": "icons/icon128.png"    }  },  "icons": {    "16": "icons/icon16.png",    "48": "icons/icon48.png",    "128": "icons/icon128.png"  },  "options_page": "options/options.html",  "content_scripts": [    {      "matches": ["*://*.youtube.com/*", "*://*.instagram.com/*", "*://*.facebook.com/*"],      "js": ["content-shorts.js"],      "run_at": "document_idle"    },    {      "matches": [        "*://docs.google.com/*",        "*://*.office.com/*",        "*://*.live.com/*",        "*://*.onedrive.com/*"      ],      "js": ["content-writing.js"],      "run_at": "document_idle"    }  ],  "content_security_policy": {    "extension_pages": "script-src 'self'; object-src 'self'"  }}
+{
+  "manifest_version": 3,
+  "name": "LifeLensIQ Tracker",
+  "version": "0.4.0",
+  "description": "Passive browser activity tracker for LifeLensIQ personal analytics (prototype). Focus mode, pomodoro, YouTube distraction-free.",
+  "permissions": ["storage", "tabs", "idle", "alarms", "notifications"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "LifeLensIQ Tracker",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*", "*://*.instagram.com/*", "*://*.facebook.com/*"],
+      "js": ["content-shorts.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://docs.google.com/*",
+        "*://*.office.com/*",
+        "*://*.live.com/*",
+        "*://*.onedrive.com/*"
+      ],
+      "js": ["content-writing.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content-youtube-focus.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

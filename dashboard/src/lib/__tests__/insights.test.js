@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildInsights } from '../insights.js';
+import { buildInsights, domainTransitions, detectAnomalies } from '../insights.js';
 
 const ev = (id, ts, durationSeconds, category, overrides = {}) => ({
   id,
@@ -66,5 +66,62 @@ describe('buildInsights', () => {
     const insights = buildInsights(events, 7, now);
     expect(insights.length).toBeLessThanOrEqual(8);
     expect(insights.length).toBeGreaterThan(0);
+  });
+});
+describe('domainTransitions', () => {
+  const now = new Date(2026, 7, 11, 12).getTime();
+
+  it('finds frequent A-to-B domain switches within the gap window', () => {
+    const base = now - 3600000;
+    const events = [
+      ev('a', base, 600, 'Entertainment', { domain: 'youtube.com', endTs: base + 600000 }),
+      ev('b', base + 700000, 600, 'DSA', { domain: 'leetcode.com', endTs: base + 700000 + 600000 }),
+      ev('c', base + 3600000, 600, 'Entertainment', { domain: 'youtube.com', endTs: base + 3600000 + 600000 }),
+      ev('d', base + 3700000, 600, 'DSA', { domain: 'leetcode.com', endTs: base + 3700000 + 600000 }),
+    ];
+    const t = domainTransitions(events, 7, now);
+    expect(t.length).toBe(1);
+    expect(t[0].from).toBe('youtube.com');
+    expect(t[0].to).toBe('leetcode.com');
+    expect(t[0].count).toBe(2);
+  });
+
+  it('ignores transitions with too-large gaps', () => {
+    const base = now - 3600000;
+    const events = [
+      ev('a', base, 600, 'Entertainment', { domain: 'youtube.com', endTs: base + 600000 }),
+      ev('b', base + 3600000, 600, 'DSA', { domain: 'leetcode.com', endTs: base + 3600000 + 600000 }),
+    ];
+    expect(domainTransitions(events, 7, now)).toEqual([]);
+  });
+});
+
+describe('detectAnomalies', () => {
+  it('flags late-night activity (2-5 AM)', () => {
+    const now = new Date(2026, 7, 11, 12).getTime();
+    const d = new Date(now);
+    d.setHours(3, 0, 0, 0);
+    const events = [ev('a', d.getTime(), 1800, 'Entertainment', { endTs: d.getTime() + 1800000 })];
+    const anomalies = detectAnomalies(events, now);
+    expect(anomalies.some((a) => a.title.includes('Late-night'))).toBe(true);
+  });
+
+it('flags 3h+ uninterrupted distraction runs', () => {
+    const now = new Date(2026, 7, 11, 12).getTime();
+    const base = now - 6 * 3600000;
+    const events = [];
+    for (let i = 0; i < 7; i++) {
+      const t = base + i * 1800000;
+      events.push(ev(`e${i}`, t, 1800, 'Timepass', { domain: 'instagram.com', endTs: t + 1800000 }));
+    }
+    const anomalies = detectAnomalies(events, now);
+    expect(anomalies.some((a) => a.title.includes('uninterrupted'))).toBe(true);
+  });
+
+  it('returns no anomalies for clean data', () => {
+    const now = new Date(2026, 7, 11, 12).getTime();
+    const base = now - 3600000;
+    const events = [ev('a', base, 3600, 'Study', { endTs: base + 3600000 })];
+    expect(detectAnomalies(events, now)).toEqual([]);
   });
 });

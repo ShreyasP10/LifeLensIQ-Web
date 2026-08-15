@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { dayKeyLocal, formatDuration } from '../lib/stats.js';
+import { predictFocusWindow } from '../lib/ml.js';
 import {
   CATEGORY_WEIGHTS,
   isProductiveCategory,
@@ -38,6 +39,15 @@ function secondsFor(ev, mode) {
 export default function Heatmap({ events, days = 365 }) {
   const [mode, setMode] = useState('productive');
   const modeName = MODES.find(([v]) => v === mode)[1].toLowerCase();
+
+  const prediction = useMemo(() => predictFocusWindow(events, {}), [events]);
+  const hourCells = useMemo(() => {
+    if (!prediction) return null;
+    return Array.from({ length: 24 }, (_, h) => ({
+      hour: h,
+      inWindow: h >= prediction.start && h < prediction.end,
+    }));
+  }, [prediction]);
 
   const cells = useMemo(() => {
     const byDay = {};
@@ -102,6 +112,24 @@ export default function Heatmap({ events, days = 365 }) {
           ))}
         </select>
       </div>
+      {prediction && hourCells && (
+        <div className="predict-strip" title={`Predicted best ${prediction.end - prediction.start}h window for tomorrow`}>
+          <span className="predict-label">Predicted focus window — tomorrow</span>
+          <div className="predict-hours">
+            {hourCells.map((c) => (
+              <span
+                key={c.hour}
+                className={c.inWindow ? 'predict-hour on' : 'predict-hour'}
+                title={c.inWindow ? `${String(c.hour).padStart(2, '0')}:00–${String(c.hour + 1).padStart(2, '0')}:00 (in window)` : `${String(c.hour).padStart(2, '0')}:00`}
+              />
+            ))}
+          </div>
+          <span className="predict-meta">
+            {String(prediction.start).padStart(2, '0')}:00–{String(prediction.end).padStart(2, '0')}:00
+            · {prediction.confidence}% confidence · {prediction.rows} recent sessions
+          </span>
+        </div>
+      )}
       <div className="heatmap-head">
         {columns.map((c, i) => (
           <span key={i} className="heatmap-month">{c.monthLabel}</span>

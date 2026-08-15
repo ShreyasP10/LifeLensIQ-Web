@@ -38,5 +38,8 @@ function buildMetadata(session) {
   if (session.eventType === 'pdf_view') {
     m.pdf = true;
   }
+  if (session.focus) {
+    m.focus = true;
+  }
   return m;
 }

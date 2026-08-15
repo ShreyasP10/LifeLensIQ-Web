@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { dayKeyLocal, eventsOnDay, formatDuration, formatTime, pad } from '../lib/stats.js';
+import { dayKeyLocal, eventsOnDay, formatDuration, formatTime, pad, deepFocusSessions } from '../lib/stats.js';
 import { categoryColor, CATEGORY_KEYS } from '../lib/categories.js';
 import SiteDrilldown from './SiteDrilldown.jsx';
 
@@ -15,6 +15,17 @@ export default function Timeline({ events }) {
   const [drilldown, setDrilldown] = useState('');
 
   const dayEvents = useMemo(() => eventsOnDay(events, date), [events, date]);
+  const deepIds = useMemo(() => {
+    const sessions = deepFocusSessions(dayEvents);
+    const set = new Set();
+    for (const s of sessions) {
+      for (const ev of dayEvents) {
+        const ts = Number(ev.ts) || 0;
+        if (ev.domain === s.domain && ts >= s.start && ts <= s.end) set.add(ev.id);
+      }
+    }
+    return set;
+  }, [dayEvents]);
   const typeKeys = useMemo(() => {
     const set = new Set();
     for (const ev of dayEvents) set.add(ev.eventType || 'tab_active');
@@ -108,7 +119,12 @@ export default function Timeline({ events }) {
           <div className="event-item" key={ev.id}>
             <div className="bar" style={{ background: categoryColor(ev.category) }} />
             <div className="meta">
-              <div className="domain">{ev.domain} <span className="tag">{ev.category}</span></div>
+              <div className="domain">
+                {ev.domain} <span className="tag">{ev.category}</span>
+                {deepIds.has(ev.id) && (
+                  <span className="tag deep" title="30+ min on one site without a 5-min gap">deep focus 🎯</span>
+                )}
+              </div>
               <div className="path">
                 {formatTime(ev.ts)} → {formatTime(ev.endTs || ev.ts)} · {ev.title || ev.path || ''}
                 {ev.eventType !== 'tab_active' && <span> · <b>{ev.eventType}</b></span>}

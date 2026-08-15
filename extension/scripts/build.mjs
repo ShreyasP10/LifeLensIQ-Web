@@ -23,10 +23,14 @@ const common = {
 await build({ ...common, entryPoints: { background: 'src/background.js' } });
 await build({ ...common, entryPoints: { 'content-shorts': 'src/content/shorts.js' } });
 await build({ ...common, entryPoints: { 'content-writing': 'src/content/writing.js' } });
+await build({ ...common, entryPoints: { 'content-youtube-focus': 'src/content/youtube-focus.js' } });
+await build({ ...common, entryPoints: { focus: 'src/focus.js' } });
 await build({ ...common, entryPoints: { 'popup/popup': 'src/popup/popup.js' } });
 await build({ ...common, entryPoints: { 'options/options': 'src/options/options.js' } });
 
 copyFileSync(join(root, 'manifest.json'), join(outdir, 'manifest.json'));
+copyFileSync(join(root, 'src/focus.html'), join(outdir, 'focus.html'));
+copyFileSync(join(root, 'src/focus.css'), join(outdir, 'focus.css'));
 copyFileSync(join(root, 'src/popup/popup.html'), join(outdir, 'popup/popup.html'));
 copyFileSync(join(root, 'src/popup/popup.css'), join(outdir, 'popup/popup.css'));
 copyFileSync(join(root, 'src/options/options.html'), join(outdir, 'options/options.html'));

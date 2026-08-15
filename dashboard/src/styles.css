@@ -1100,3 +1100,137 @@ html[data-theme='light'] .heat-cell:hover {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* ---------- day summary ---------- */
+.day-summary .summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.summary-stats > div {
+  background: var(--card-grad-a);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.summary-stats .label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.summary-stats strong {
+  font-size: 20px;
+}
+
+/* ---------- streak flame ---------- */
+.flame {
+  filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.55));
+}
+
+/* ---------- prediction strip ---------- */
+.predict-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 14px;
+  flex-wrap: wrap;
+}
+.predict-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.predict-hours {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  min-width: 260px;
+}
+.predict-hour {
+  flex: 1;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--cell-neutral, #1e293b);
+  transition: transform 0.15s;
+}
+.predict-hour.on {
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.5);
+}
+.predict-hour:hover {
+  transform: scaleY(1.25);
+}
+.predict-meta {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---------- alerts ---------- */
+.alerts-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.alerts-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-grad-a);
+  color: var(--text);
+  cursor: pointer;
+}
+.alerts-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+.alerts-pop {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  z-index: 50;
+  width: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.4));
+}
+.alerts-pop .insight {
+  box-shadow: none;
+}
+.alerts-pop .mini {
+  margin-top: 6px;
+}
+
+/* ---------- deep focus tag ---------- */
+.tag.deep {
+  background: rgba(251, 191, 36, 0.16);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+}

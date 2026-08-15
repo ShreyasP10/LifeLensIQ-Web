@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="focus.css" />
+  <title>LifeLensIQ — Focus Mode</title>
+</head>
+<body>
+  <main class="focus-card">
+    <div class="logo">LLIQ</div>
+    <h1>Focus mode is on</h1>
+    <p class="muted">
+      <b id="blocked-domain">this site</b> is not on your focus allowlist, so it's blocked while
+      focus mode is active.
+    </p>
+    <div class="stat-row">
+      <div><span class="label">Focus started</span><strong id="focus-start">—</strong></div>
+      <div><span class="label">Elapsed</span><strong id="focus-elapsed">—</strong></div>
+    </div>
+    <div class="controls">
+      <input id="allow-input" placeholder="domain to allow, e.g. leetcode.com" />
+      <button id="allow-btn">Allow domain &amp; continue</button>
+      <button id="stop-btn" class="danger">Stop focus mode</button>
+    </div>
+    <p id="msg" class="muted hidden"></p>
+  </main>
+  <script src="focus.js"></script>
+</body>
+</html>

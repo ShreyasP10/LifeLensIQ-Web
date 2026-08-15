@@ -1,6 +1,7 @@
-import { initFirebase, isFirebaseConfigured } from '../shared/firebase.js';
+import { initFirebase, isFirebaseConfigured, getFirebase } from '../shared/firebase.js';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth/web-extension';
-import { categoryColor } from '../shared/categories.js';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { categoryColor, CATEGORY_WEIGHTS } from '../shared/categories.js';
 import { DASHBOARD_URL } from '../shared/firebase-config.js';
 
 let auth = null;
@@ -128,6 +129,168 @@ async function refresh() {
 }
 
 const THEME_KEY = 'lifelensiq_theme';
+const POMO_KEY = 'lifelensiq_pomodoro';
+
+/* ---------------- focus mode ---------------- */
+
+let focusActive = false;
+
+async function refreshFocus() {
+  const res = await chrome.runtime.sendMessage({ type: 'getFocusState' }).catch(() => null);
+  focusActive = Boolean(res && res.active);
+  const status = el('focus-status');
+  status.textContent = focusActive ? 'on' : 'off';
+  status.className = focusActive ? 'focus-on' : 'focus-off';
+  el('focus-toggle').textContent = focusActive ? 'Stop focus' : 'Start focus';
+  if (res && res.allowlist && res.allowlist.length) {
+    el('focus-allowlist').value = res.allowlist.join(', ');
+  }
+}
+
+/* ---------------- pomodoro ---------------- */
+
+const POMO_DEFAULTS = {
+  phase: 'idle',
+  kind: 'focus',
+  minutes: 25,
+  remaining: 25 * 60,
+  cycles: 0,
+};
+
+let pomo = { ...POMO_DEFAULTS };
+let pomoTick = null;
+
+function savePomo() {
+  chrome.storage.local.set({ [POMO_KEY]: { ...pomo, lastTs: Date.now() } });
+}
+
+function pomoRender() {
+  const m = String(Math.floor(pomo.remaining / 60)).padStart(2, '0');
+  const s = String(pomo.remaining % 60).padStart(2, '0');
+  el('pomo-time').textContent = `${m}:${s}`;
+  el('pomo-phase').textContent =
+    pomo.phase === 'idle' ? (pomo.kind === 'focus' ? 'focus · 25m' : 'break · 5m') : pomo.phase;
+  el('pomo-toggle').textContent = pomo.phase === 'running' ? 'Pause' : 'Start';
+}
+
+async function pomoReset() {
+  clearInterval(pomoTick);
+  pomoTick = null;
+  const { [POMO_KEY]: saved } = await chrome.storage.local.get(POMO_KEY);
+  pomo = {
+    ...POMO_DEFAULTS,
+    kind: (saved && saved.kind) || 'focus',
+    minutes: (saved && saved.minutes) || 25,
+    cycles: (saved && saved.cycles) || 0,
+  };
+  pomo.remaining = pomo.minutes * 60;
+  pomoRender();
+  savePomo();
+}
+
+function pomoFinish() {
+  if (pomo.kind === 'focus') {
+    chrome.runtime.sendMessage({ type: 'pomodoroDone', minutes: pomo.minutes, cycles: pomo.cycles + 1 }).catch(() => {});
+    pomo.cycles += 1;
+    pomo.kind = 'break';
+    pomo.minutes = 5;
+  } else {
+    pomo.kind = 'focus';
+    pomo.minutes = 25;
+  }
+  pomo.remaining = pomo.minutes * 60;
+  pomo.phase = 'running';
+  savePomo();
+  pomoRender();
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+    title: pomo.kind === 'focus' ? 'Pomodoro complete' : 'Break over',
+    message:
+      pomo.kind === 'focus'
+        ? `Focus session logged (${pomo.cycles} today). Break time.`
+        : 'Back to focus — start another 25 min.',
+  }).catch(() => {});
+}
+
+function pomoToggle() {
+  if (pomo.phase === 'running') {
+    clearInterval(pomoTick);
+    pomoTick = null;
+    pomo.phase = 'paused';
+    savePomo();
+  } else {
+    pomo.phase = 'running';
+    savePomo();
+    pomoTick = setInterval(() => {
+      pomo.remaining -= 1;
+      if (pomo.remaining <= 0) {
+        clearInterval(pomoTick);
+        pomoTick = null;
+        pomoFinish();
+        return;
+      }
+      savePomo();
+      pomoRender();
+    }, 1000);
+  }
+  pomoRender();
+}
+
+async function initPomodoro() {
+  const { [POMO_KEY]: saved } = await chrome.storage.local.get(POMO_KEY);
+  if (saved) {
+    pomo = { ...POMO_DEFAULTS, ...saved };
+    if (pomo.phase === 'running') {
+      const elapsed = Math.round((Date.now() - (saved.lastTs || Date.now())) / 1000);
+      pomo.remaining = Math.max(0, pomo.remaining - elapsed);
+      if (pomo.remaining <= 0) {
+        pomo.phase = 'idle';
+        pomo.remaining = pomo.minutes * 60;
+        savePomo();
+      }
+    }
+  }
+  pomoRender();
+}
+
+/* ---------------- weekly nudge ---------------- */
+
+async function renderWeeklyNudge() {
+  const box = el('weekly-nudge');
+  const fb = getFirebase();
+  if (!fb.db) return;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (start.getDay() || 7) + 1);
+  try {
+    const snap = await getDocs(
+      query(collection(fb.db, 'users', fb.auth.currentUser.uid, 'events'), where('ts', '>=', start.getTime()))
+    );
+    let study = 0;
+    let shorts = 0;
+    for (const d of snap.docs) {
+      const ev = d.data();
+      const dur = Number(ev.durationSeconds) || 0;
+      const w = CATEGORY_WEIGHTS[ev.category] ?? 0;
+      if (w >= 0.9) study += dur;
+      else if (ev.eventType === 'short_video' || ev.category === 'Short-form Video') shorts += dur;
+    }
+    const h = (s) => Math.round(s / 3600);
+    const studyH = h(study);
+    const shortsH = h(shorts);
+    box.innerHTML = `
+      <div class="sec-title">This week (web + app)</div>
+      <div class="nudge-line"><span>Study</span><b>${studyH}h</b></div>
+      <div class="nudge-bar"><span style="width:${Math.min(100, Math.round((study / 360000) * 100))}%;background:#4ade80"></span></div>
+      <div class="nudge-line"><span>Shorts</span><b>${shortsH}h</b></div>
+      <div class="nudge-bar"><span style="width:${Math.min(100, Math.round((shorts / 360000) * 100))}%;background:#e879f9"></span></div>
+      <p class="nudge-msg muted">${studyH >= shortsH ? `Study wins — ${studyH}h vs ${shortsH}h. Keep it up.` : `Shorts beat study (${shortsH}h vs ${studyH}h). Close the gap.`}</p>
+    `;
+  } catch {
+    box.innerHTML = '';
+  }
+}
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -196,9 +359,28 @@ async function main() {
     chrome.runtime.openOptionsPage();
   });
 
+  el('focus-toggle').addEventListener('click', async () => {
+    if (focusActive) {
+      await chrome.runtime.sendMessage({ type: 'stopFocus' }).catch(() => {});
+    } else {
+      const allowlist = el('focus-allowlist').value.split(',').map((d) => d.trim()).filter(Boolean);
+      await chrome.runtime.sendMessage({ type: 'startFocus', allowlist }).catch(() => {});
+    }
+    refreshFocus();
+  });
+
+  el('pomo-toggle').addEventListener('click', pomoToggle);
+  el('pomo-reset').addEventListener('click', pomoReset);
+
   auth.onAuthStateChanged(() => refresh());
   refresh();
-  liveTick = setInterval(refresh, 5000);
+  await initPomodoro();
+  await refreshFocus();
+  renderWeeklyNudge();
+  liveTick = setInterval(() => {
+    refresh();
+    renderWeeklyNudge();
+  }, 30000);
 }
 
 window.addEventListener('unload', () => {

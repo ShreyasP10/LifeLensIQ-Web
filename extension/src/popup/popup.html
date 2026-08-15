@@ -47,6 +47,28 @@
     <div class="row"><span>Events pending sync</span><strong id="pending-sync">—</strong></div>
     <div class="row"><span>Last sync</span><strong id="last-sync">—</strong></div>
 
+    <div class="section">
+      <div class="sec-title">Focus mode</div>
+      <div class="row">
+        <span>Status</span><strong id="focus-status" class="focus-off">off</strong>
+      </div>
+      <input id="focus-allowlist" placeholder="allowlisted domains, comma-separated" />
+      <div class="btn-row">
+        <button id="focus-toggle" class="accent">Start focus</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title">Pomodoro</div>
+      <div class="pomo-display"><span id="pomo-time">25:00</span><span id="pomo-phase" class="muted">focus</span></div>
+      <div class="btn-row">
+        <button id="pomo-toggle">Start</button>
+        <button id="pomo-reset" class="secondary">Reset</button>
+      </div>
+    </div>
+
+    <div class="section" id="weekly-nudge"></div>
+
     <div class="cat-summary" id="cat-summary"></div>
 
     <div class="btn-row">

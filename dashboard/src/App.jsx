@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   auth,
   db,
@@ -13,6 +13,7 @@ import {
 } from './firebase.js';
 import { isLight, toggleTheme } from './lib/theme.js';
 import { normalizeEvent } from './lib/events.js';
+import { detectAnomalies } from './lib/insights.js';
 import Login from './components/Login.jsx';
 import Overview from './components/Overview.jsx';
 import Timeline from './components/Timeline.jsx';
@@ -56,6 +57,14 @@ function Dashboard({ user }) {
   const [timetable, setTimetable] = useState(null);
   const [dataError, setDataError] = useState('');
   const [light, setLight] = useState(isLight());
+  const [alertsOpen, setAlertsOpen] = useState(false);
+
+  const anomalies = useMemo(
+    () => (events ? detectAnomalies(events) : []),
+    [events]
+  );
+  const [dismissed, setDismissed] = useState({});
+  const activeAlerts = anomalies.filter((a) => !dismissed[a.title]);
 
   useEffect(() => {
     const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));
@@ -106,6 +115,37 @@ function Dashboard({ user }) {
             </button>
           ))}
         </div>
+        <div className="alerts-wrap">
+          <button
+            className="alerts-btn"
+            onClick={() => setAlertsOpen(!alertsOpen)}
+            title="Anomaly alerts"
+            aria-label="Anomaly alerts"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {activeAlerts.length > 0 && <span className="alerts-badge">{activeAlerts.length}</span>}
+          </button>
+          {alertsOpen && (
+            <div className="alerts-pop">
+              {activeAlerts.length === 0 && (
+                <p className="muted" style={{ padding: 8 }}>No anomalies detected in the last 7 days.</p>
+              )}
+              {activeAlerts.map((a) => (
+                <div key={a.title} className={`insight ${a.kind}`}>
+                  <div className="insight-title">{a.title}</div>
+                  <div className="insight-detail">{a.detail}</div>
+                  <button className="mini" onClick={() => setDismissed({ ...dismissed, [a.title]: true })}>
+                    Dismiss
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           className="theme-toggle"
           onClick={() => setLight(toggleTheme())}
@@ -150,7 +190,7 @@ function Dashboard({ user }) {
         {tab === 'leaderboard' && <Leaderboard user={user} events={events || []} />}
         {tab === 'timetable' && <TimetablePage user={user} timetable={timetable} />}
         {tab === 'log' && <ManualEntry user={user} />}
-        {tab === 'settings' && <SettingsPage user={user} settings={settings} />}
+        {tab === 'settings' && <SettingsPage user={user} settings={settings} events={events || []} />}
       </main>
     </div>
   );

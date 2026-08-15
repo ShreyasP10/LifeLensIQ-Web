@@ -14,14 +14,58 @@ import {
   deleteDoc,
 } from '../firebase.js';
 import { CATEGORY_KEYS } from '../lib/categories.js';
+import { formatTime, formatDuration } from '../lib/stats.js';
 
-export default function SettingsPage({ user, settings }) {
+export default function SettingsPage({ user, settings, events }) {
   const overrides = settings.domainCategories || {};
   const [domain, setDomain] = useState('');
   const [category, setCategory] = useState(CATEGORY_KEYS[0]);
+  const [target, setTarget] = useState(String(settings.focusTargetMinutes || 120));
   const [status, setStatus] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busyDelete, setBusyDelete] = useState(false);
+
+  const devices = (() => {
+    const m = new Map();
+    let legacy = 0;
+    const seenIds = new Set();
+    let dupes = 0;
+    for (const ev of events || []) {
+      const dev = ev.device || 'unknown';
+      const rec = m.get(dev) || { count: 0, lastTs: 0 };
+      rec.count += 1;
+      if (Number(ev.ts) > rec.lastTs) rec.lastTs = Number(ev.ts);
+      m.set(dev, rec);
+      if (!ev.eventId || ev.eventId === ev.id) {
+        if (ev.id && seenIds.has(ev.id)) dupes += 1;
+        seenIds.add(ev.id || '');
+      } else {
+        if (seenIds.has(ev.eventId)) dupes += 1;
+        seenIds.add(ev.eventId);
+        if (!ev.eventId) legacy += 1;
+      }
+    }
+    return {
+      list: [...m.entries()].sort((a, b) => b[1].lastTs - a[1].lastTs),
+      total: (events || []).length,
+      legacy,
+      dupes,
+    };
+  })();
+
+  async function saveTarget() {
+    const minutes = Math.max(0, Number(target) || 0);
+    try {
+      await setDoc(
+        doc(db, 'users', user.uid, 'settings', 'profile'),
+        { focusTargetMinutes: minutes, updatedAt: Date.now() },
+        { merge: true }
+      );
+      flash('Daily focus target saved.');
+    } catch (err) {
+      flash(err.message, false);
+    }
+  }
 
   function flash(msg, ok = true) {
     setStatus(msg);
@@ -109,6 +153,54 @@ export default function SettingsPage({ user, settings }) {
           {Object.keys(overrides).length === 0 && <span className="muted">No overrides yet.</span>}
         </div>
         {status && <p className="hint" style={{ color: status.startsWith('Category') ? 'var(--ok)' : 'var(--danger)' }}>{status}</p>}
+      </div>
+
+      <div className="panel">
+        <h2>Daily Focus Target</h2>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          Your streak counts a day only when productive-weighted time reaches this target.
+        </p>
+        <div className="form-row">
+          <input
+            type="number"
+            min="0"
+            step="15"
+            style={{ width: 140 }}
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+          />
+          <span className="muted">minutes / day</span>
+          <button onClick={saveTarget}>Save target</button>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Sync health</h2>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          All devices (Android app, Chrome extension, manual web entries) share one{' '}
+          <code>users/&#123;uid&#125;/events</code> collection. Events are upserted by{' '}
+          <code>eventId</code>, so duplicates should not exist.
+        </p>
+        <div className="row"><span>Total events</span><strong>{devices.total}</strong></div>
+        {devices.list.map(([dev, rec]) => (
+          <div className="row" key={dev}>
+            <span>
+              <span className="chip">{dev}</span> {rec.count} events
+            </span>
+            <strong>{rec.lastTs ? `last seen ${formatTime(rec.lastTs)}` : 'never'}</strong>
+          </div>
+        ))}
+        <div className="row">
+          <span>Legacy events (no eventId — written before the shared contract)</span>
+          <strong>{devices.legacy}</strong>
+        </div>
+        <div className="row">
+          <span>Duplicate eventIds in the last 10k events</span>
+          <strong style={{ color: devices.dupes > 0 ? 'var(--danger)' : 'var(--ok)' }}>
+            {devices.dupes}
+          </strong>
+        </div>
+        <p className="hint">Web → app appears after the app's next sync (≤ 15 min). App → web is live within seconds.</p>
       </div>
 
       <div className="panel">

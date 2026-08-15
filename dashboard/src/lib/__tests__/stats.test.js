@@ -15,6 +15,12 @@ import {
   comparePeriods,
   focusStreak,
   buildStatsReport,
+  deepFocusSessions,
+  daySummary,
+  bestFocusWindow,
+  streakForTarget,
+  weekdayAgg,
+  weekOverWeek,
 } from '../stats.js';
 
 const ev = (id, ts, durationSeconds, category, overrides = {}) => ({
@@ -208,5 +214,115 @@ describe('buildStatsReport', () => {
       weight: 1,
       productiveSeconds: 3600,
     });
+  });
+});
+describe('deepFocusSessions', () => {
+  it('merges consecutive same-domain events with small gaps into one session', () => {
+    const base = 1700000000000;
+    const sessions = deepFocusSessions([
+      ev('a', base, 1200, 'Study', { domain: 'leetcode.com', endTs: base + 1200000 }),
+      ev('b', base + 1250000, 1200, 'Study', { domain: 'leetcode.com', endTs: base + 2450000 }),
+      ev('c', base + 2500000, 600, 'Study', { domain: 'leetcode.com', endTs: base + 3100000 }),
+      ev('d', base + 4000000, 300, 'Other', { domain: 'reddit.com', endTs: base + 4300000 }),
+    ]);
+    expect(sessions.length).toBe(1);
+    expect(sessions[0].domain).toBe('leetcode.com');
+    expect(sessions[0].seconds).toBe(3000);
+  });
+
+  it('does not merge across long gaps or different domains', () => {
+    const base = 1700000000000;
+    const sessions = deepFocusSessions([
+      ev('a', base, 2000, 'Study', { domain: 'leetcode.com', endTs: base + 2000000 }),
+      ev('b', base + 3600000, 2000, 'Study', { domain: 'leetcode.com', endTs: base + 5600000 }),
+    ]);
+    expect(sessions.length).toBe(2);
+  });
+
+  it('skips events below the min threshold', () => {
+    const base = 1700000000000;
+    const sessions = deepFocusSessions([
+      ev('a', base, 1000, 'Study', { domain: 'leetcode.com', endTs: base + 1000000 }),
+    ]);
+    expect(sessions.length).toBe(0);
+  });
+});
+
+describe('daySummary', () => {
+  it('computes today study, shorts and deep sessions', () => {
+    const now = 1700000000000;
+    const base = 1700000000000 - 3600000;
+    const summary = daySummary(
+      [
+        ev('a', base, 3600, 'Study', { domain: 'leetcode.com', endTs: base + 3600000 }),
+        ev('b', base + 3700000, 600, 'Short-form Video', { domain: 'youtube.com', endTs: base + 4300000 }),
+        ev('c', base + 4400000, 900, 'Entertainment', { domain: 'netflix.com', endTs: base + 5300000 }),
+      ],
+      now
+    );
+    expect(summary.studySeconds).toBe(3600);
+    expect(summary.shortsSeconds).toBe(600);
+    expect(summary.deepSessions).toBe(1);
+    expect(summary.score).toBeGreaterThan(0);
+  });
+});
+
+describe('bestFocusWindow', () => {
+  it('finds the top 3-hour productive window from recent history', () => {
+    const now = new Date(2026, 7, 11, 12).getTime();
+    const base = new Date(now);
+    base.setHours(0, 0, 0, 0);
+    base.setDate(base.getDate() - 2);
+    const events = [];
+    for (let h = 0; h < 3; h++) {
+      const t = base.getTime() + (9 + h) * 3600000;
+      events.push(ev(`e${h}`, t, 3500, 'Study', { endTs: t + 3500000 }));
+    }
+    const w = bestFocusWindow(events, { now });
+    expect(w.start).toBe(9);
+    expect(w.end).toBe(12);
+    expect(w.profile.length).toBe(24);
+  });
+
+  it('returns null with no data', () => {
+    expect(bestFocusWindow([], { now: Date.now() })).toBeNull();
+  });
+});
+
+describe('streakForTarget', () => {
+  it('counts only days meeting the target (and allows today in progress)', () => {
+    const now = 1700000000000;
+    const day = 86400000;
+    const events = [
+      ev('a', now - day, 7200, 'Study', { endTs: now - day + 7200000 }),
+      ev('b', now - 2 * day, 7200, 'Study', { endTs: now - 2 * day + 7200000 }),
+      ev('c', now - 3 * day, 600, 'Study', { endTs: now - 3 * day + 600000 }),
+      ev('d', now - 4 * day, 7200, 'Study', { endTs: now - 4 * day + 7200000 }),
+      ev('e', now - 1, 3600, 'Study', { endTs: now - 1 + 3600000 }),
+    ];
+    expect(streakForTarget(events, 120, now)).toBe(2);
+    expect(streakForTarget(events, 0, now)).toBe(focusStreak(events, now));
+  });
+});
+
+describe('weekdayAgg and weekOverWeek', () => {
+  it('returns 7 weekday entries with seconds', () => {
+    const agg = weekdayAgg([ev('a', 1700000000000, 3600, 'Study', { endTs: 1700000000000 + 3600000 })]);
+    expect(agg.length).toBe(7);
+    expect(agg.some((w) => w.seconds > 0)).toBe(true);
+  });
+
+  it('returns per-category deltas between periods', () => {
+    const now = 1700000000000;
+    const day = 86400000;
+    const events = [
+      ev('a', now - 3 * 3600000, 3600, 'Study', { endTs: now - 3 * 3600000 + 3600000 }),
+      ev('b', now - 7 * day - 3600000, 3600, 'Study', { endTs: now - 7 * day - 3600000 + 3600000 }),
+    ];
+    const wows = weekOverWeek(events, 7, now);
+    const study = wows.find((w) => w.category === 'Study');
+    expect(study).toBeDefined();
+    expect(study.current).toBe(3600);
+    expect(study.change).toBe(0);
   });
 });

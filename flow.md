@@ -104,6 +104,25 @@ metadata: object                   schemaVersion: 1
 - **Category vocabulary** is identical on both sides: Study, DSA, Development, Productivity,
   Entertainment, Timepass, Short-form Video, Utilities, Other.
 
+## 1c. v0.5 Features
+
+- **Day summary** (Overview, Today): study, shorts, deep-focus sessions, score at a glance.
+- **Focus streak with target**: daily productive-minute target set in Settings; streak counts
+  only days meeting it (`streakForTarget`).
+- **Week-over-week deltas** (7d view) and **per-weekday stacked bars**.
+- **Shorts : Study ratio** insight; **domain transitions** ("after youtube.com you usually switch
+  to leetcode.com within N min"); **anomaly alerts** bell (2–5 AM screen time, 3h+ distraction
+  runs) with dismiss.
+- **Focus-window prediction**: `predictFocusWindow` (14-day hourly productive profile, top 3h)
+  rendered as a strip on the heatmap with confidence.
+- **Deep-focus sessions**: ≥ 30 min on one domain without 5-min gaps — gold badge in Timeline,
+  counter in Overview.
+- **PWA**: manifest + service worker + icons (installable, offline shell).
+- **Sync health** (Settings): per-device last-seen/counts, legacy docs, duplicate eventIds.
+- **Extension**: Focus mode with allowlist (blocked tabs redirect to `focus.html`, events tagged
+  `metadata.focus`), Pomodoro 25/5 timer writing `POMODORO` events, weekly study-vs-shorts nudge
+  in the popup, YouTube distraction-free toggle (hides home feed + related).
+
 ## 2. Dashboard Real-Time Pipeline
 
 ```

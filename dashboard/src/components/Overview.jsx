@@ -23,6 +23,12 @@ import {
   comparePeriods,
   pctChange,
   focusStreak,
+  daySummary,
+  bestFocusWindow,
+  streakForTarget,
+  weekOverWeek,
+  deepFocusSessions,
+  formatTime,
 } from '../lib/stats.js';
 import {
   categoryColor,
@@ -95,7 +101,40 @@ const [activeSlice, setActiveSlice] = useState(null);
   );
 
   const topDomains = topEntries(cur.byDomain, 5);
-  const streak = useMemo(() => focusStreak(events, now), [events, now]);
+  const summary = useMemo(() => daySummary(events, now), [events, now]);
+  const focusWindow = useMemo(() => bestFocusWindow(events, { now }), [events, now]);
+  const streak = useMemo(
+    () => streakForTarget(events, settings.focusTargetMinutes, now),
+    [events, settings.focusTargetMinutes, now]
+  );
+  const target = Number(settings.focusTargetMinutes) || 0;
+  const wows = useMemo(
+    () => (range === '7d' ? weekOverWeek(events, 7, now) : []),
+    [events, range, now]
+  );
+  const deepCount = useMemo(
+    () => (range === 'today' ? summary.deepSessions : deepFocusSessions(rangeEvents).length),
+    [range, summary, rangeEvents]
+  );
+  const weekdayBars = useMemo(() => {
+    const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const data = labels.map((label) => ({ label, productive: 0, neutral: 0, distracting: 0 }));
+    for (const ev of rangeEvents) {
+      const dur = Number(ev.durationSeconds) || 0;
+      if (dur <= 0) continue;
+      const w = new Date(Number(ev.ts)).getDay();
+      const c = ev.category;
+      if (isProductiveCategory(c)) data[w].productive += dur / 3600;
+      else if (isDistractingCategory(c)) data[w].distracting += dur / 3600;
+      else data[w].neutral += dur / 3600;
+    }
+    return data.map((r) => ({
+      ...r,
+      productive: Math.round(r.productive * 10) / 10,
+      neutral: Math.round(r.neutral * 10) / 10,
+      distracting: Math.round(r.distracting * 10) / 10,
+    }));
+  }, [rangeEvents]);
   const scoreDelta = cur.score - prev.score;
   const activePct = pctChange(cur.totalSeconds, prev.totalSeconds);
   const classes = todayClasses(timetable);
@@ -110,6 +149,39 @@ const [activeSlice, setActiveSlice] = useState(null);
 
   return (
     <div>
+      {range === 'today' && (
+        <div className="panel day-summary">
+          <div className="head-row">
+            <h2>Today at a glance</h2>
+            <span className="muted">{formatTime(now)}</span>
+          </div>
+          <div className="summary-stats">
+            <div>
+              <span className="label">Study / productive</span>
+              <strong>{formatDuration(summary.studySeconds)}</strong>
+            </div>
+            <div>
+              <span className="label">Shorts / reels</span>
+              <strong>{formatDuration(summary.shortsSeconds)}</strong>
+            </div>
+            <div>
+              <span className="label">Deep focus sessions</span>
+              <strong>{summary.deepSessions}</strong>
+            </div>
+            <div>
+              <span className="label">Productivity score</span>
+              <strong>{summary.score}</strong>
+            </div>
+          </div>
+          {focusWindow && (
+            <p className="hint">
+              Typical best focus window (last 14 days):{' '}
+              <b>{focusWindow.start}:00 – {focusWindow.end}:00</b> — schedule your hardest work there.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="panel">
         <div className="head-row">
           <h2>{range === 'today' ? 'Today' : `Last ${rangeDays} days`} · Productivity Score</h2>
@@ -291,16 +363,60 @@ const [activeSlice, setActiveSlice] = useState(null);
           <div className="sub">{topDomains[0] ? formatDuration(topDomains[0].seconds) : 'no data'}</div>
         </div>
         <div className="card">
-          <h3>Categories active</h3>
-          <div className="big">{pieData.length}</div>
-          <div className="sub">of {CATEGORY_KEYS.length}</div>
+          <h3>Deep focus sessions</h3>
+          <div className="big">{deepCount}</div>
+          <div className="sub">≥ 30 min on one site, no 5-min gaps</div>
         </div>
         <div className="card">
           <h3>Focus streak</h3>
-          <div className="big">{streak}<small style={{ fontSize: 13 }}> days</small></div>
-          <div className="sub">consecutive days with activity</div>
+          <div className="big">
+            <span className="flame">🔥</span> {streak}<small style={{ fontSize: 13 }}> days</small>
+          </div>
+          <div className="sub">
+            {target ? `≥ ${target} min/day (set in Settings)` : 'any activity (set a target in Settings)'}
+          </div>
         </div>
       </div>
+
+      <div className="grid">
+        <div className="card" style={{ gridColumn: 'span 2' }}>
+          <h3>By weekday ({rangeLabel}, hours)</h3>
+          <div style={{ height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weekdayBars}>
+                <XAxis dataKey="label" stroke="var(--muted)" fontSize={11} />
+                <YAxis stroke="var(--muted)" fontSize={11} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(v, name) => [`${v} h`, name]}
+                />
+                <Bar dataKey="productive" stackId="a" fill={STACK_COLORS.productive} />
+                <Bar dataKey="neutral" stackId="a" fill={STACK_COLORS.neutral} />
+                <Bar dataKey="distracting" stackId="a" fill={STACK_COLORS.distracting} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {wows.length > 0 && (
+        <div className="panel">
+          <div className="head-row">
+            <h2>Week over week — last 7d vs previous 7d</h2>
+            <span className="muted">per category, by time spent</span>
+          </div>
+          <div className="list-inline">
+            {wows.map((w) => (
+              <span key={w.category} className="chip">
+                {w.category}
+                <b style={{ color: w.change === null ? 'var(--muted)' : w.change >= 0 ? 'var(--danger)' : 'var(--ok)' }}>
+                  {' '}{w.change === null ? 'new' : `${w.change >= 0 ? '+' : ''}${w.change}%`}
+                </b>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h3>Activity calendar — last 365 days</h3>
