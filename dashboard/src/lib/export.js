@@ -3,7 +3,10 @@ import { buildStatsReport } from './stats.js';
 
 export const CSV_COLUMNS = [
   'id',
+  'eventId',
+  'userId',
   'ts',
+  'timestamp',
   'endTs',
   'durationSeconds',
   'domain',
@@ -19,7 +22,10 @@ export const CSV_COLUMNS = [
 export function toCSV(events) {
   const rows = (events || []).map((ev) => ({
     id: ev.id,
+    eventId: ev.eventId || ev.id || '',
+    userId: ev.userId || '',
     ts: ev.ts,
+    timestamp: ev.timestamp ?? ev.ts,
     endTs: ev.endTs,
     durationSeconds: ev.durationSeconds,
     domain: ev.domain,

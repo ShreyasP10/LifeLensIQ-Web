@@ -138,6 +138,7 @@ async function flushSegment() {
   if (s.eventType === 'short_video') {
     s.shorts.seconds = Math.round(durationMs / 1000);
   }
+  s.userId = currentUser?.uid || '';
   const ev = buildEvent(s);
   const buffer = await getBuffer();
 

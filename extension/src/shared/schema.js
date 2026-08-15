@@ -1,5 +1,5 @@
 export const SCHEMA_VERSION = 1;
-export const DEVICE_EXTENSION = 'extension';
+export const DEVICE_EXTENSION = 'web';
 
 export function makeEventId() {
   return crypto.randomUUID();
@@ -9,7 +9,10 @@ export function buildEvent(session) {
   const durationSeconds = Math.max(1, Math.round((session.lastTs - session.startTs) / 1000));
   return {
     id: session.eventId,
+    eventId: session.eventId,
+    userId: session.userId || '',
     ts: session.startTs,
+    timestamp: session.startTs,
     endTs: session.lastTs,
     durationSeconds,
     domain: session.domain || '',

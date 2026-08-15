@@ -400,7 +400,11 @@ function buildSeed() {
 
       events[id] = {
         id,
+        eventId: id,
+        userId: 'demo001',
+        device: 'extension',
         ts: start,
+        timestamp: start,
         endTs: end,
         durationSeconds: Math.round(duration),
         domain,
@@ -409,7 +413,6 @@ function buildSeed() {
         category: eventType === 'short_video' ? 'Short-form Video' : category,
         eventType,
         metadata: meta,
-        device: 'extension',
         schemaVersion: 1,
       };
     }

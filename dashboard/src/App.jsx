@@ -12,6 +12,7 @@ import {
   doc,
 } from './firebase.js';
 import { isLight, toggleTheme } from './lib/theme.js';
+import { normalizeEvent } from './lib/events.js';
 import Login from './components/Login.jsx';
 import Overview from './components/Overview.jsx';
 import Timeline from './components/Timeline.jsx';
@@ -57,10 +58,10 @@ function Dashboard({ user }) {
   const [light, setLight] = useState(isLight());
 
   useEffect(() => {
-    const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(5000));
+    const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));
     const unsub = onSnapshot(
       q,
-      (snap) => setEvents(snap.docs.map((d) => d.data())),
+      (snap) => setEvents(snap.docs.map((d) => normalizeEvent(d.data()))),
       (err) => setDataError(err.message)
     );
     return unsub;

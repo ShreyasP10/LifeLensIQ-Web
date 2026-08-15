@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { db, doc, setDoc } from '../firebase.js';
 import { CATEGORY_KEYS, CATEGORIES } from '../lib/categories.js';
 import { pad } from '../lib/stats.js';
+import { buildWebEvent, makeEventId } from '../lib/events.js';
+
+const EVENT_TYPES = ['STUDY_SESSION', 'APP_SESSION', 'manual'];
 
 function todayStr() {
   const d = new Date();
@@ -15,6 +18,7 @@ export default function ManualEntry({ user }) {
   const [domain, setDomain] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(CATEGORIES.STUDY);
+  const [eventType, setEventType] = useState(EVENT_TYPES[0]);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -33,24 +37,35 @@ export default function ManualEntry({ user }) {
     const ts = new Date(`${date}T${startTime}`).getTime();
     if (Number.isNaN(ts)) return flash('Invalid date or time.', false);
 
-    const id = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const endTs = ts + min * 60000;
+    const name = title.trim() || `Manual — ${d}`;
+    const metadata =
+      eventType === 'STUDY_SESSION'
+        ? { subject: title.trim() || d, startedAt: ts, endedAt: endTs, durationMs: min * 60000, locationType: 'web' }
+        : { source: 'manual-entry' };
+
     setBusy(true);
     try {
-      await setDoc(doc(db, 'users', user.uid, 'events', id), {
-        id,
-        ts,
-        endTs: ts + min * 60000,
-        durationSeconds: min * 60,
-        domain: d,
-        path: '/manual',
-        title: title.trim() || `Manual — ${d}`,
-        category,
-        eventType: 'manual',
-        device: 'manual',
-        schemaVersion: 1,
-        metadata: { source: 'manual-entry' },
-      });
-      flash(`${d} · ${min} min logged. It appears in Overview, Timeline and ML exports instantly.`);
+      const eventId = makeEventId();
+      await setDoc(
+        doc(db, 'users', user.uid, 'events', eventId),
+        buildWebEvent({
+          eventId,
+          ts,
+          endTs,
+          durationSeconds: min * 60,
+          domain: d,
+          path: eventType === 'STUDY_SESSION' ? '/manual/study' : '/manual',
+          title: name,
+          category,
+          eventType,
+          metadata,
+          userId: user.uid,
+        })
+      );
+      flash(
+        `${d} · ${min} min logged as ${eventType}. Appears in Overview, Timeline, ML exports — and the Android app after its next sync (≤15 min).`
+      );
       setDomain('');
       setTitle('');
     } catch (err) {
@@ -65,8 +80,9 @@ export default function ManualEntry({ user }) {
       <h2>Manual Entry</h2>
       <p className="muted" style={{ marginBottom: 14 }}>
         Log activities the extension cannot see (mobile, offline study, phone calls, real life).
-        These events flow into every dashboard view and the ML dataset export, tagged{' '}
-        <code>eventType = "manual"</code>.
+        Written to the same <code>users/&#123;uid&#125;/events</code> collection as the Android app —
+        pick <b>Study session</b> and it counts in both calendars. Events are upserted by{' '}
+        <code>eventId</code> (idempotent, no duplicates).
       </p>
 
       <div className="form-row">
@@ -106,6 +122,14 @@ export default function ManualEntry({ user }) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+        </div>
+        <div className="field">
+          <label>Event type</label>
+          <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+            {EVENT_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
         </div>
         <div className="field">
           <label>Category</label>

@@ -75,6 +75,35 @@ This document describes the end-to-end data flow from browser activity capture t
 
 ---
 
+## 1b. App ↔ Web Shared Event Contract
+
+All clients (Android app, Chrome extension, web dashboard) read and write the **same flat**
+`users/{uid}/events` collection — one event = one doc, doc id == `eventId` (UUID), written with
+`set()` so retries are idempotent.
+
+Shared envelope (`lib/events.js` on web, FirestoreEventSource on Android):
+
+```
+id: string        (= eventId)      eventId: string  (UUID)
+userId: string    deviceId: string
+device: "android" | "web"          ts: epoch ms     timestamp: number (= ts)
+endTs: number     durationSeconds: number
+eventType: string                  category: string (shared vocabulary)
+domain: string (package/host)      path: string     title: string
+metadata: object                   schemaVersion: 1
+```
+
+- **Dashboard reads**: `App.jsx` maps every doc through `normalizeEvent()` (tolerant of both
+  app-style `eventId/timestamp` and web-style `id/ts` keys; null domain, empty metadata ok).
+  No view filters by device — app + extension + manual data aggregate together.
+- **Dashboard writes**: Manual Entry writes via `buildWebEvent()` (device `web`, uuid eventId);
+  `STUDY_SESSION` payloads carry `{subject, startedAt, endedAt, durationMs, locationType}`
+  so the Android app's productive calendar counts them.
+- **Extension writes**: `shared/schema.js` emits the same envelope (device `web`, plus
+  `eventId`/`timestamp`/`userId`) so the app's dedupe-by-eventId works.
+- **Category vocabulary** is identical on both sides: Study, DSA, Development, Productivity,
+  Entertainment, Timepass, Short-form Video, Utilities, Other.
+
 ## 2. Dashboard Real-Time Pipeline
 
 ```
