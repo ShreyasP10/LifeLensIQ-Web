@@ -16,13 +16,15 @@ import { pad } from '../lib/stats.js';
 const PAGE = 1000;
 const MAX_TOTAL = 100000;
 
-export default function ExportPanel({ user }) {
+export default function ExportPanel({ user, deviceFilter = 'all' }) {
   const [from, setFrom] = useState(defaultRange()[0]);
   const [to, setTo] = useState(defaultRange()[1]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
+
+  const eventDevice = (ev) => ev.deviceId || (ev.device === 'web' ? 'web' : 'unknown');
 
   function defaultRange() {
     const end = new Date();
@@ -56,7 +58,11 @@ export default function ExportPanel({ user }) {
         if (lastDoc) constraints.push(startAfter(lastDoc));
         const snap = await getDocs(query(collection(db, 'users', user.uid, 'events'), ...constraints));
         if (snap.empty || snap.docs.length === 0) break;
-        out.push(...snap.docs.map((d) => d.data()));
+        for (const d of snap.docs) {
+          const ev = d.data();
+          if (deviceFilter !== 'all' && eventDevice(ev) !== deviceFilter) continue;
+          out.push(ev);
+        }
         lastDoc = snap.docs[snap.docs.length - 1];
         setProgress(`page ${page} · ${out.length} events…`);
         if (snap.docs.length < PAGE || out.length >= MAX_TOTAL) break;

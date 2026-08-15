@@ -104,6 +104,26 @@ metadata: object                   schemaVersion: 1
 - **Category vocabulary** is identical on both sides: Study, DSA, Development, Productivity,
   Entertainment, Timepass, Short-form Video, Utilities, Other.
 
+## 1d. v0.6 — App feature parity (web mirrors Android app)
+
+- **Focus breakdown**: Study sessions with `locationType == "FOCUS"` counted separately (count,
+  total minutes, longest) shown in Overview. Manual quick-logs (`locationType == "MANUAL"`) appear
+  with a "manual" badge in Timeline.
+- **Wake & sleep card** (Overview today + Timeline any day): pickups (SCREEN_ON count), first wake
+  (≥ 05:00), last shutdown (last SCREEN_OFF), sleep estimate (prev-day last shutdown after 12:00
+  minus today first screen-on after 04:00, clamped 45 min–14 h). Shows "—" when data missing.
+- **Trends tab** (new, 5th tab): period chips 1D / 7D / 30D / 1Y (monthly buckets) with stacked
+  screen/study bar chart; totals row for screen, study, steps, shorts, pickups. Month comparison
+  (this vs last month, % deltas colored: study/steps green on increase, shorts red on increase).
+  Charging discipline card (last 7 days: sessions, avg duration, overnight count ≥ 21:00 or ≤ 06:00).
+- **Per-device filter**: chip row (All / Website / Android · UUID-prefix) at top of dashboard;
+  every view (Overview, Timeline, Trends, Leaderboard, Export) respects the filter.
+- **Sync rules**: web writes always include `eventId` (UUID), `ts`/`timestamp`, `endTs`,
+  `durationSeconds`, `eventType`, `category`, `domain/path/title`, `metadata`, `device: "web"`,
+  `deviceId: "web"`, `schemaVersion: 1`. Upserted by `eventId` (setDoc with id = eventId).
+- **Category normalization**: all incoming events normalized through `categories.js`; unknown
+  categories map to "Other".
+
 ## 1c. v0.5 Features
 
 - **Day summary** (Overview, Today): study, shorts, deep-focus sessions, score at a glance.

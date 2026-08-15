@@ -255,6 +255,200 @@ export function weekOverWeek(events, days, now = Date.now()) {
     .sort((x, y) => y.current + y.previous - (x.current + x.previous));
 }
 
+export function addDaysKey(day, offset) {
+  const [y, m, d] = day.split('-').map(Number);
+  const dt = new Date(y, m - 1, d, 12);
+  dt.setDate(dt.getDate() + offset);
+  return dayKeyLocal(dt);
+}
+
+export function focusSessions(events) {
+  const sessions = (events || []).filter(
+    (ev) =>
+      ev.eventType === 'STUDY_SESSION' &&
+      ev.metadata &&
+      ev.metadata.locationType === 'FOCUS'
+  );
+  const minutes = sessions.reduce(
+    (a, ev) => a + (Number(ev.durationSeconds) || 0) / 60,
+    0
+  );
+  const longest = sessions.reduce(
+    (a, ev) => Math.max(a, Number(ev.durationSeconds) || 0),
+    0
+  );
+  return { count: sessions.length, minutes: Math.round(minutes), longestSeconds: longest };
+}
+
+export function manualStudyEvents(events) {
+  return (events || []).filter(
+    (ev) =>
+      ev.eventType === 'STUDY_SESSION' &&
+      ev.metadata &&
+      ev.metadata.locationType === 'MANUAL'
+  );
+}
+
+export function wakeSleepForDay(events, day) {
+  const dayEvents = eventsOnDay(events, day);
+  const prevDayEvents = eventsOnDay(events, addDaysKey(day, -1));
+
+  const pickups = dayEvents.filter((ev) => ev.eventType === 'SCREEN_ON').length;
+
+  const firstWake = dayEvents
+    .filter(
+      (ev) => ev.eventType === 'SCREEN_ON' && new Date(Number(ev.ts) || 0).getHours() >= 5
+    )
+    .sort((a, b) => a.ts - b.ts)[0];
+
+  const firstOn = dayEvents
+    .filter(
+      (ev) => ev.eventType === 'SCREEN_ON' && new Date(Number(ev.ts) || 0).getHours() >= 4
+    )
+    .sort((a, b) => a.ts - b.ts)[0];
+
+  const lastShutdown = dayEvents
+    .filter((ev) => ev.eventType === 'SCREEN_OFF')
+    .sort((a, b) => b.ts - a.ts)[0];
+
+  let sleepMs = null;
+  if (firstOn) {
+    const prevOff = prevDayEvents
+      .filter(
+        (ev) => ev.eventType === 'SCREEN_OFF' && new Date(Number(ev.ts) || 0).getHours() >= 12
+      )
+      .sort((a, b) => b.ts - a.ts)[0];
+    if (prevOff) {
+      const gap = Number(firstOn.ts) - Number(prevOff.ts);
+      if (gap >= 45 * 60000 && gap <= 14 * 3600000) sleepMs = gap;
+    }
+  }
+
+  return {
+    day,
+    pickups,
+    firstWake: firstWake ? Number(firstWake.ts) : null,
+    lastShutdown: lastShutdown ? Number(lastShutdown.ts) : null,
+    sleepMs,
+  };
+}
+
+export function chargeSessions(events, days = 7, now = Date.now()) {
+  const keys = new Set(lastNDays(days, now));
+  const inRange = (events || [])
+    .filter((ev) => keys.has(dayKey(ev.ts)))
+    .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+  const sessions = [];
+  let start = null;
+  for (const ev of inRange) {
+    const ts = Number(ev.ts) || 0;
+    if (ev.eventType === 'CHARGE_START') {
+      if (start && ts - start >= 60000) sessions.push({ startTs: start, endTs: ts, durationMs: ts - start });
+      start = ts;
+    } else if (ev.eventType === 'CHARGE_END' && start) {
+      if (ts - start >= 60000) sessions.push({ startTs: start, endTs: ts, durationMs: ts - start });
+      start = null;
+    }
+  }
+  const totalMs = sessions.reduce((a, s) => a + s.durationMs, 0);
+  const overnight = sessions.filter((s) => {
+    const h = new Date(s.startTs).getHours();
+    return h >= 21 || h <= 6;
+  }).length;
+  return {
+    sessions: sessions.length,
+    avgMinutes: sessions.length ? Math.round(totalMs / sessions.length / 60000) : 0,
+    overnight,
+  };
+}
+
+function emptyBucket() {
+  return { screen: 0, study: 0, steps: 0, shorts: 0, pickups: 0 };
+}
+
+export function trendSeries(events, period, now = Date.now()) {
+  const out = [];
+  if (period === 365) {
+    const start = new Date(now);
+    start.setMonth(start.getMonth() - 11);
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    const buckets = new Map();
+    for (const ev of events || []) {
+      const ts = Number(ev.ts) || 0;
+      if (!ts || ts < start.getTime()) continue;
+      const d = new Date(ts);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const b = buckets.get(key) || emptyBucket();
+      const dur = Number(ev.durationSeconds) || 0;
+      b.screen += dur;
+      if (isProductiveCategory(ev.category)) b.study += dur;
+      if (ev.eventType === 'short_video' || ev.category === 'Short-form Video') b.shorts += dur;
+      if (ev.eventType === 'SCREEN_ON') b.pickups += 1;
+      b.steps += Number(ev.metadata && ev.metadata.stepDelta) || 0;
+      buckets.set(key, b);
+    }
+    const d = new Date(start);
+    for (let i = 0; i < 12; i++) {
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      out.push({
+        key,
+        label: d.toLocaleString([], { month: 'short' }),
+        ...(buckets.get(key) || emptyBucket()),
+      });
+      d.setMonth(d.getMonth() + 1);
+    }
+  } else {
+    const days = period === 1 ? 1 : period === 7 ? 7 : 30;
+    for (const key of lastNDays(days, now)) {
+      const b = emptyBucket();
+      for (const ev of eventsOnDay(events, key)) {
+        const dur = Number(ev.durationSeconds) || 0;
+        b.screen += dur;
+        if (isProductiveCategory(ev.category)) b.study += dur;
+        if (ev.eventType === 'short_video' || ev.category === 'Short-form Video') b.shorts += dur;
+        if (ev.eventType === 'SCREEN_ON') b.pickups += 1;
+        b.steps += Number(ev.metadata && ev.metadata.stepDelta) || 0;
+      }
+      out.push({ key, label: key.slice(5).replace('-', '/'), ...b });
+    }
+  }
+  return out;
+}
+
+export function monthComparison(events, now = Date.now()) {
+  const d = new Date(now);
+  const curStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const prevStart = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+  const cur = emptyBucket();
+  const prev = emptyBucket();
+  for (const ev of events || []) {
+    const ts = Number(ev.ts) || 0;
+    if (!ts) continue;
+    const dur = Number(ev.durationSeconds) || 0;
+    const bucket = ts >= curStart ? cur : ts >= prevStart ? prev : null;
+    if (!bucket) continue;
+    bucket.screen += dur;
+    if (isProductiveCategory(ev.category)) bucket.study += dur;
+    if (ev.eventType === 'short_video' || ev.category === 'Short-form Video') bucket.shorts += dur;
+    if (ev.eventType === 'SCREEN_ON') bucket.pickups += 1;
+    bucket.steps += Number(ev.metadata && ev.metadata.stepDelta) || 0;
+  }
+  return [
+    ['screen', 'Screen time'],
+    ['study', 'Study'],
+    ['steps', 'Steps'],
+    ['shorts', 'Shorts'],
+    ['pickups', 'Pickups'],
+  ].map(([metric, label]) => ({
+    metric,
+    label,
+    current: cur[metric],
+    previous: prev[metric],
+    change: pctChange(cur[metric], prev[metric]),
+  }));
+}
+
 export function buildStatsReport(events, range) {
   const a = aggregate(events);
   return {

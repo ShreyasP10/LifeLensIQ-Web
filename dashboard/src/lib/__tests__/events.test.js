@@ -108,3 +108,30 @@ describe('buildWebEvent', () => {
     expect(makeEventId()).not.toBe(makeEventId());
   });
 });
+describe('deviceId and category normalization', () => {
+  it('keeps deviceId and normalizes unknown categories to Other', () => {
+    const n = normalizeEvent({
+      id: 'd1',
+      eventId: 'd1',
+      ts: 1,
+      timestamp: 1,
+      durationSeconds: 10,
+      device: 'android',
+      deviceId: 'abc-123',
+      category: 'SomeNewAppCategory',
+      eventType: 'APP_SESSION',
+    });
+    expect(n.deviceId).toBe('abc-123');
+    expect(n.category).toBe('Other');
+  });
+
+  it('defaults deviceId to web for web events', () => {
+    const n = normalizeEvent({ id: 'w', ts: 1, durationSeconds: 10, device: 'web' });
+    expect(n.deviceId).toBe('web');
+  });
+
+  it('buildWebEvent stamps deviceId web', () => {
+    const ev = buildWebEvent({ ts: 1, endTs: 2, durationSeconds: 1, category: 'Study' });
+    expect(ev.deviceId).toBe('web');
+  });
+});

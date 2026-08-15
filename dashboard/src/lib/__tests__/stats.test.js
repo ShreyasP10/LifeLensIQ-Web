@@ -18,9 +18,15 @@ import {
   deepFocusSessions,
   daySummary,
   bestFocusWindow,
-  streakForTarget,
+streakForTarget,
   weekdayAgg,
   weekOverWeek,
+  focusSessions,
+  manualStudyEvents,
+  wakeSleepForDay,
+  chargeSessions,
+  trendSeries,
+  monthComparison,
 } from '../stats.js';
 
 const ev = (id, ts, durationSeconds, category, overrides = {}) => ({
@@ -323,6 +329,140 @@ describe('weekdayAgg and weekOverWeek', () => {
     const study = wows.find((w) => w.category === 'Study');
     expect(study).toBeDefined();
     expect(study.current).toBe(3600);
+    expect(study.change).toBe(0);
+  });
+});
+
+describe('focusSessions', () => {
+  it('counts STUDY_SESSION events with locationType FOCUS separately', () => {
+    const base = 1700000000000;
+    const study = (id, sec, locationType) => ({
+      id,
+      ts: base,
+      endTs: base + sec * 1000,
+      durationSeconds: sec,
+      domain: 'focus',
+      category: 'Study',
+      eventType: 'STUDY_SESSION',
+      metadata: { subject: 'ML', locationType },
+    });
+    const events = [
+      study('f1', 1500, 'FOCUS'),
+      study('f2', 2100, 'FOCUS'),
+      study('m1', 600, 'MANUAL'),
+      study('h1', 900, 'HOME'),
+    ];
+    const f = focusSessions(events);
+    expect(f.count).toBe(2);
+    expect(f.minutes).toBe(60);
+    expect(f.longestSeconds).toBe(2100);
+  });
+
+  it('manualStudyEvents returns only MANUAL logs', () => {
+    const base = 1700000000000;
+    const events = [
+      { id: 'a', ts: base, endTs: base, durationSeconds: 600, eventType: 'STUDY_SESSION', metadata: { locationType: 'MANUAL' } },
+      { id: 'b', ts: base, endTs: base, durationSeconds: 900, eventType: 'STUDY_SESSION', metadata: { locationType: 'FOCUS' } },
+    ];
+    expect(manualStudyEvents(events).map((e) => e.id)).toEqual(['a']);
+  });
+});
+
+describe('wakeSleepForDay', () => {
+  const day = (y, m, d, h, min) => new Date(y, m - 1, d, h, min, 0, 0).getTime();
+
+  it('computes pickups, first wake, last shutdown and sleep estimate', () => {
+    const events = [
+      { id: 'on1', ts: day(2026, 8, 10, 23, 0), endTs: 0, durationSeconds: 0, eventType: 'SCREEN_OFF' },
+      { id: 'on2', ts: day(2026, 8, 11, 6, 10), endTs: 0, durationSeconds: 0, eventType: 'SCREEN_ON' },
+      { id: 'on3', ts: day(2026, 8, 11, 8, 30), endTs: 0, durationSeconds: 0, eventType: 'SCREEN_ON' },
+      { id: 'off1', ts: day(2026, 8, 11, 21, 45), endTs: 0, durationSeconds: 0, eventType: 'SCREEN_OFF' },
+    ];
+    const r = wakeSleepForDay(events, '2026-08-11');
+    expect(r.pickups).toBe(2);
+    expect(r.firstWake).toBe(day(2026, 8, 11, 6, 10));
+    expect(r.lastShutdown).toBe(day(2026, 8, 11, 21, 45));
+    expect(r.sleepMs).toBe(day(2026, 8, 11, 6, 10) - day(2026, 8, 10, 23, 0));
+  });
+
+  it('returns nulls when data is missing', () => {
+    const r = wakeSleepForDay([], '2026-08-11');
+    expect(r.pickups).toBe(0);
+    expect(r.firstWake).toBeNull();
+    expect(r.lastShutdown).toBeNull();
+    expect(r.sleepMs).toBeNull();
+  });
+
+  it('rejects implausible sleep estimates (outside 45 min - 14 h)', () => {
+    const events = [
+      { id: 'a', ts: day(2026, 8, 10, 23, 0), endTs: 0, durationSeconds: 0, eventType: 'SCREEN_OFF' },
+      { id: 'b', ts: day(2026, 8, 11, 14, 0), endTs: 0, durationSeconds: 0, eventType: 'SCREEN_ON' },
+    ];
+    const r = wakeSleepForDay(events, '2026-08-11');
+    expect(r.firstWake).not.toBeNull();
+    expect(r.sleepMs).toBeNull();
+  });
+});
+
+describe('chargeSessions', () => {
+  it('pairs CHARGE_START/END into sessions with avg and overnight count', () => {
+    const now = new Date(2026, 7, 12, 12).getTime();
+    const s1 = new Date(2026, 7, 10, 23, 0).getTime();
+    const s2 = new Date(2026, 7, 11, 10, 0).getTime();
+    const events = [
+      { id: 'c1', ts: s1, endTs: 0, durationSeconds: 0, eventType: 'CHARGE_START' },
+      { id: 'c2', ts: s1 + 3600000, endTs: 0, durationSeconds: 0, eventType: 'CHARGE_END' },
+      { id: 'c3', ts: s2, endTs: 0, durationSeconds: 0, eventType: 'CHARGE_START' },
+      { id: 'c4', ts: s2 + 1500000, endTs: 0, durationSeconds: 0, eventType: 'CHARGE_END' },
+    ];
+    const c = chargeSessions(events, 7, now);
+    expect(c.sessions).toBe(2);
+    expect(c.avgMinutes).toBe(43);
+    expect(c.overnight).toBe(1);
+  });
+});
+
+describe('trendSeries', () => {
+  const now = new Date(2026, 7, 11, 12).getTime();
+  const day = 86400000;
+
+  it('builds daily buckets for 7D with steps and pickups', () => {
+    const events = [
+      { id: 'a', ts: now - 2 * day, endTs: 0, durationSeconds: 3600, category: 'Study', eventType: 'tab_active' },
+      { id: 'b', ts: now - 2 * day, endTs: 0, durationSeconds: 0, category: 'Other', eventType: 'SCREEN_ON' },
+      { id: 'c', ts: now - 2 * day, endTs: 0, durationSeconds: 0, category: 'Other', eventType: 'STEPS', metadata: { stepDelta: 1200 } },
+    ];
+    const series = trendSeries(events, 7, now);
+    expect(series.length).toBe(7);
+    const twoDaysAgo = series[series.length - 3];
+    expect(twoDaysAgo.screen).toBe(3600);
+    expect(twoDaysAgo.study).toBe(3600);
+    expect(twoDaysAgo.pickups).toBe(1);
+    expect(twoDaysAgo.steps).toBe(1200);
+  });
+
+  it('builds 12 monthly buckets for 1Y', () => {
+    const events = [
+      { id: 'a', ts: now - 60 * day, endTs: 0, durationSeconds: 3600, category: 'Study', eventType: 'tab_active' },
+    ];
+    const series = trendSeries(events, 365, now);
+    expect(series.length).toBe(12);
+    const total = series.reduce((a, b) => a + b.screen, 0);
+    expect(total).toBe(3600);
+  });
+});
+
+describe('monthComparison', () => {
+  it('computes deltas between this month and last month', () => {
+    const now = new Date(2026, 7, 15, 12).getTime();
+    const events = [
+      { id: 'a', ts: new Date(2026, 7, 5, 12).getTime(), endTs: 0, durationSeconds: 3600, category: 'Study', eventType: 'tab_active' },
+      { id: 'b', ts: new Date(2026, 6, 5, 12).getTime(), endTs: 0, durationSeconds: 3600, category: 'Study', eventType: 'tab_active' },
+    ];
+    const c = monthComparison(events, now);
+    const study = c.find((m) => m.metric === 'study');
+    expect(study.current).toBe(3600);
+    expect(study.previous).toBe(3600);
     expect(study.change).toBe(0);
   });
 });

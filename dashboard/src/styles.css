@@ -1234,3 +1234,38 @@ html[data-theme='light'] .heat-cell:hover {
   border: 1px solid rgba(251, 191, 36, 0.4);
   color: #fbbf24;
 }
+
+/* ---------- device filter ---------- */
+.device-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.device-filter button {
+  border: 1px solid var(--border);
+  background: var(--card-grad-a);
+  color: var(--text);
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.device-filter button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ---------- study session badges ---------- */
+.tag.manual {
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: var(--muted);
+}
+.tag.focus {
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: var(--accent);
+}
