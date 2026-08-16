@@ -20,7 +20,6 @@ import Timeline from './components/Timeline.jsx';
 import Trends from './components/Trends.jsx';
 import ExportPanel from './components/ExportPanel.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
-import TimetablePage from './components/TimetablePage.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import ManualEntry from './components/ManualEntry.jsx';
 
@@ -30,7 +29,6 @@ const TABS = [
   ['timeline', 'Timeline'],
   ['export', 'Export'],
   ['leaderboard', 'Leaderboard'],
-  ['timetable', 'Timetable'],
   ['log', 'Log'],
   ['settings', 'Settings'],
 ];
@@ -56,7 +54,6 @@ function Dashboard({ user }) {
   const [tab, setTab] = useState('overview');
   const [events, setEvents] = useState(null);
   const [settings, setSettings] = useState({ domainCategories: {} });
-  const [timetable, setTimetable] = useState(null);
   const [dataError, setDataError] = useState('');
   const [light, setLight] = useState(isLight());
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -79,9 +76,9 @@ function Dashboard({ user }) {
 
   const deviceLabel = (id) => {
     if (id === 'all') return 'All devices';
-    if (id === 'web') return 'Website';
+    if (id === 'web') return 'Laptop';
     if (id === 'unknown') return 'Unknown';
-    return `Android · ${id.slice(0, 4)}`;
+    return `Phone · ${id.slice(0, 4)}`;
   };
 
   const filteredEvents = useMemo(() => {
@@ -112,16 +109,6 @@ function Dashboard({ user }) {
     return unsub;
   }, [user.uid]);
 
-  useEffect(() => {
-    const ref = doc(db, 'users', user.uid, 'timetable', 'data');
-    const unsub = onSnapshot(
-      ref,
-      (d) => setTimetable(d.exists() ? d.data() : null),
-      () => {}
-    );
-    return unsub;
-  }, [user.uid]);
-
   return (
     <div className="app">
       <nav>
@@ -143,7 +130,7 @@ function Dashboard({ user }) {
           <button
             className="alerts-btn"
             onClick={() => setAlertsOpen(!alertsOpen)}
-            title="Anomaly alerts"
+            title="Anomaly alerts — unusual usage patterns (late-night screen time 2–5 AM, 3h+ uninterrupted distraction runs)"
             aria-label="Anomaly alerts"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -156,7 +143,14 @@ function Dashboard({ user }) {
           {alertsOpen && (
             <div className="alerts-pop">
               {activeAlerts.length === 0 && (
-                <p className="muted" style={{ padding: 8 }}>No anomalies detected in the last 7 days.</p>
+                <div style={{ padding: 8 }}>
+                  <p className="muted">No anomalies detected in the last 7 days.</p>
+                  <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    Anomalies are unusual patterns in your usage — e.g. screen time between 2–5 AM,
+                    or an uninterrupted distraction run of 3+ hours. They appear here automatically
+                    when detected.
+                  </p>
+                </div>
               )}
               {activeAlerts.map((a) => (
                 <div key={a.title} className={`insight ${a.kind}`}>
@@ -225,14 +219,12 @@ function Dashboard({ user }) {
             user={user}
             events={filteredEvents}
             settings={settings}
-            timetable={timetable}
           />
         )}
         {tab === 'trends' && <Trends events={filteredEvents} />}
         {tab === 'timeline' && <Timeline events={filteredEvents} />}
         {tab === 'export' && <ExportPanel user={user} deviceFilter={deviceFilter} />}
         {tab === 'leaderboard' && <Leaderboard user={user} events={filteredEvents} />}
-        {tab === 'timetable' && <TimetablePage user={user} timetable={timetable} />}
         {tab === 'log' && <ManualEntry user={user} />}
         {tab === 'settings' && <SettingsPage user={user} settings={settings} events={events || []} />}
       </main>

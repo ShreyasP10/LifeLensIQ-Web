@@ -57,6 +57,7 @@ export default function Trends({ events }) {
     border: '1px solid var(--tooltip-border)',
     borderRadius: 10,
   };
+  const cursor = { fill: 'rgba(148, 163, 184, 0.18)' };
 
   const periodLabel = period === 1 ? 'today' : period === 365 ? 'last 12 months' : `last ${period} days`;
 
@@ -86,9 +87,9 @@ export default function Trends({ events }) {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="label" stroke="var(--muted)" fontSize={10} interval={period === 30 ? 4 : period === 365 ? 0 : 0} />
                 <YAxis stroke="var(--muted)" fontSize={11} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [`${v} h`, name]} />
+                <Tooltip contentStyle={tooltipStyle} cursor={cursor} formatter={(v, name) => [`${v} h`, name]} />
                 <Bar dataKey="screen" fill="#38bdf8" radius={[3, 3, 0, 0]} name="Screen" />
-                <Bar dataKey="study" fill="#4ade80" radius={[3, 3, 0, 0]} name="Study" />
+                <Bar dataKey="study" fill="#4ade80" radius={[3, 3, 0, 0]} name="Productive" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -101,7 +102,7 @@ export default function Trends({ events }) {
             <div className="sub">across the period</div>
           </div>
           <div className="card">
-            <h3>Study</h3>
+            <h3>Productive</h3>
             <div className="big">{fmtHours(totals.study)}</div>
             <div className="sub">productive categories</div>
           </div>
