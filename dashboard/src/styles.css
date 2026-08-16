@@ -1167,6 +1167,22 @@ html[data-theme='light'] .heat-cell:hover {
 .recharts-active-bar {
   fill-opacity: 0.85;
 }
+.recharts-default-tooltip {
+  background: var(--tooltip-bg) !important;
+  border: 1px solid var(--tooltip-border) !important;
+  border-radius: 10px;
+  box-shadow: var(--shadow-soft);
+}
+.recharts-default-tooltip .recharts-tooltip-label {
+  color: var(--muted) !important;
+  font-weight: 600;
+}
+.recharts-default-tooltip .recharts-tooltip-item,
+.recharts-default-tooltip .recharts-tooltip-item-name,
+.recharts-default-tooltip .recharts-tooltip-item-value,
+.recharts-default-tooltip .recharts-tooltip-item-separator {
+  color: var(--text) !important;
+}
 .heatmap-legend {
   display: flex;
   align-items: center;
@@ -1299,16 +1315,21 @@ html[data-theme='light'] .heat-cell:hover {
   position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 34px;
+  gap: 7px;
   height: 34px;
+  padding: 0 13px;
   border: none;
-  border-radius: 10px;
+  border-radius: 99px;
   background: var(--grad-solid);
   color: #fff;
   cursor: pointer;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   box-shadow: 0 3px 10px rgba(56, 189, 248, 0.3);
+}
+.alerts-label {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .alerts-badge {
   position: absolute;
