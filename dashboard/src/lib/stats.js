@@ -410,7 +410,11 @@ export function trendSeries(events, period, now = Date.now()) {
         if (ev.eventType === 'SCREEN_ON') b.pickups += 1;
         b.steps += Number(ev.metadata && ev.metadata.stepDelta) || 0;
       }
-      out.push({ key, label: key.slice(5).replace('-', '/'), ...b });
+      out.push({
+        key,
+        label: `${Number(key.slice(8, 10))} ${new Date(2026, Number(key.slice(5, 7)) - 1, 1).toLocaleString([], { month: 'short' })}`,
+        ...b,
+      });
     }
   }
   return out;

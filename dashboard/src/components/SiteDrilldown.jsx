@@ -118,7 +118,7 @@ export default function SiteDrilldown({ events, domain, onClose }) {
                 <BarChart data={byHour}>
                   <XAxis dataKey="hour" stroke="var(--muted)" fontSize={10} interval={2} />
                   <YAxis stroke="var(--muted)" fontSize={11} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v} min`, 'usage']} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(148, 163, 184, 0.18)' }} formatter={(v) => [`${v} min`, 'usage']} />
                   <Bar dataKey="minutes" fill="#38bdf8" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -131,7 +131,7 @@ export default function SiteDrilldown({ events, domain, onClose }) {
                 <BarChart data={byWeekday}>
                   <XAxis dataKey="name" stroke="var(--muted)" fontSize={10} />
                   <YAxis stroke="var(--muted)" fontSize={11} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v} min`, 'usage']} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(148, 163, 184, 0.18)' }} formatter={(v) => [`${v} min`, 'usage']} />
                   <Bar dataKey="minutes" fill="#818cf8" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -146,7 +146,7 @@ export default function SiteDrilldown({ events, domain, onClose }) {
               <BarChart data={byDay}>
                 <XAxis dataKey="day" stroke="var(--muted)" fontSize={10} />
                 <YAxis stroke="var(--muted)" fontSize={11} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v} min`, 'usage']} />
+                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(148, 163, 184, 0.18)' }} formatter={(v) => [`${v} min`, 'usage']} />
                 <Bar dataKey="minutes" fill="#4ade80" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

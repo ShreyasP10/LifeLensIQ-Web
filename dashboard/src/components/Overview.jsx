@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -24,7 +24,6 @@ import {
   pctChange,
   focusStreak,
   daySummary,
-  bestFocusWindow,
   streakForTarget,
   weekOverWeek,
   deepFocusSessions,
@@ -37,7 +36,6 @@ import {
   isProductiveCategory,
   isDistractingCategory,
 } from '../lib/categories.js';
-import { todayClasses, currentClass } from '../lib/timetable.js';
 import Insights from './Insights.jsx';
 import Heatmap from './Heatmap.jsx';
 import WakeSleepCard from './WakeSleepCard.jsx';
@@ -49,13 +47,20 @@ const RANGES = [
 ];
 
 const STACK_COLORS = { productive: '#4ade80', neutral: '#94a3b8', distracting: '#f87171' };
+const CURSOR = { fill: 'rgba(148, 163, 184, 0.18)' };
 
-function dayLabel(key, range) {
+function dayLabel(key) {
   const [, m, d] = key.split('-');
-  return `${Number(m)}/${Number(d)}`;
+  const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1];
+  return `${Number(d)} ${month}`;
 }
 
-export default function Overview({ events, settings, timetable }) {
+export default function Overview({ user, events, settings }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((x) => x + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
   const now = Date.now();
   const [range, setRange] = useState('7d');
 const [activeSlice, setActiveSlice] = useState(null);
@@ -88,7 +93,7 @@ const [activeSlice, setActiveSlice] = useState(null);
       else neutral += s;
     }
     return {
-      day: dayLabel(k, range),
+      day: dayLabel(k),
       productive: Math.round((productive / 3600) * 10) / 10,
       neutral: Math.round((neutral / 3600) * 10) / 10,
       distracting: Math.round((distracting / 3600) * 10) / 10,
@@ -104,7 +109,6 @@ const [activeSlice, setActiveSlice] = useState(null);
 
   const topDomains = topEntries(cur.byDomain, 5);
   const summary = useMemo(() => daySummary(events, now), [events, now]);
-  const focusWindow = useMemo(() => bestFocusWindow(events, { now }), [events, now]);
   const streak = useMemo(
     () => streakForTarget(events, settings.focusTargetMinutes, now),
     [events, settings.focusTargetMinutes, now]
@@ -140,8 +144,6 @@ const [activeSlice, setActiveSlice] = useState(null);
   }, [rangeEvents]);
   const scoreDelta = cur.score - prev.score;
   const activePct = pctChange(cur.totalSeconds, prev.totalSeconds);
-  const classes = todayClasses(timetable);
-  const current = currentClass(timetable);
   const rangeLabel = range === 'today' ? 'today' : `last ${rangeDays} days`;
 
   const tooltipStyle = {
@@ -176,12 +178,6 @@ const [activeSlice, setActiveSlice] = useState(null);
               <strong>{summary.score}</strong>
             </div>
           </div>
-          {focusWindow && (
-            <p className="hint">
-              Typical best focus window (last 14 days):{' '}
-              <b>{focusWindow.start}:00 – {focusWindow.end}:00</b> — schedule your hardest work there.
-            </p>
-          )}
         </div>
       )}
 
@@ -233,14 +229,6 @@ const [activeSlice, setActiveSlice] = useState(null);
             <div className="row">
               <span>Writing sessions</span><strong>{formatDuration(cur.writingSeconds)}</strong>
             </div>
-            {range === 'today' && current && (
-              <div className="row">
-                <span>Now in class</span>
-                <strong style={{ color: 'var(--accent)' }}>
-                  {current.subject} · {current.room}
-                </strong>
-              </div>
-            )}
             <div className="trend-row">
               <span className={`trend ${scoreDelta >= 0 ? 'up' : 'down'}`}>
                 Score {scoreDelta >= 0 ? '▲' : '▼'} {Math.abs(scoreDelta)} pts vs previous
@@ -258,27 +246,6 @@ const [activeSlice, setActiveSlice] = useState(null);
 
       <Insights events={events} days={range === 'today' ? 1 : rangeDays} />
 
-      {range === 'today' && classes.length > 0 && (
-        <div className="panel">
-          <h2>Today's Classes (from timetable)</h2>
-          <table>
-            <thead>
-              <tr><th>Time</th><th>Subject</th><th>Room</th><th>Batch</th></tr>
-            </thead>
-            <tbody>
-              {classes.map((c) => (
-                <tr key={`${c.startTime}-${c.subject}`} className={current && current.subject === c.subject && current.startTime === c.startTime ? 'now' : ''}>
-                  <td>{c.startTime}–{c.endTime}</td>
-                  <td>{c.subject} {c.elective && <span className="elective">PE-1</span>}</td>
-                  <td>{c.room}</td>
-                  <td>{c.batch}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       <div className="grid">
         <div className="card" style={{ gridColumn: 'span 2' }}>
           <h3>Screen time — daily ({rangeLabel}, hours)</h3>
@@ -289,6 +256,7 @@ const [activeSlice, setActiveSlice] = useState(null);
                 <YAxis stroke="var(--muted)" fontSize={11} />
                 <Tooltip
                   contentStyle={tooltipStyle}
+                  cursor={CURSOR}
                   formatter={(v, name) => [`${v} h`, name]}
                 />
                 <Legend
@@ -358,6 +326,47 @@ const [activeSlice, setActiveSlice] = useState(null);
       </div>
 
       <div className="grid">
+        <div className="card" style={{ gridColumn: 'span 2' }}>
+          <h3>By weekday ({rangeLabel}, hours)</h3>
+          <div style={{ height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weekdayBars}>
+                <XAxis dataKey="label" stroke="var(--muted)" fontSize={11} />
+                <YAxis stroke="var(--muted)" fontSize={11} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  cursor={CURSOR}
+                  formatter={(v, name) => [`${v} h`, name]}
+                />
+                <Bar dataKey="productive" stackId="a" fill={STACK_COLORS.productive} />
+                <Bar dataKey="neutral" stackId="a" fill={STACK_COLORS.neutral} />
+                <Bar dataKey="distracting" stackId="a" fill={STACK_COLORS.distracting} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {wows.length > 0 && (
+        <div className="panel">
+          <div className="head-row">
+            <h2>Week over week — last 7d vs previous 7d</h2>
+            <span className="muted">per category, by time spent</span>
+          </div>
+          <div className="list-inline">
+            {wows.map((w) => (
+              <span key={w.category} className="chip">
+                {w.category}
+                <b style={{ color: w.change === null ? 'var(--muted)' : w.change >= 0 ? 'var(--danger)' : 'var(--ok)' }}>
+                  {' '}{w.change === null ? 'new' : `${w.change >= 0 ? '+' : ''}${w.change}%`}
+                </b>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid">
         <div className="card">
           <h3>Events ({rangeLabel})</h3>
           <div className="big">{cur.count}</div>
@@ -389,46 +398,6 @@ const [activeSlice, setActiveSlice] = useState(null);
           </div>
         </div>
       </div>
-
-      <div className="grid">
-        <div className="card" style={{ gridColumn: 'span 2' }}>
-          <h3>By weekday ({rangeLabel}, hours)</h3>
-          <div style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weekdayBars}>
-                <XAxis dataKey="label" stroke="var(--muted)" fontSize={11} />
-                <YAxis stroke="var(--muted)" fontSize={11} />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  formatter={(v, name) => [`${v} h`, name]}
-                />
-                <Bar dataKey="productive" stackId="a" fill={STACK_COLORS.productive} />
-                <Bar dataKey="neutral" stackId="a" fill={STACK_COLORS.neutral} />
-                <Bar dataKey="distracting" stackId="a" fill={STACK_COLORS.distracting} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {wows.length > 0 && (
-        <div className="panel">
-          <div className="head-row">
-            <h2>Week over week — last 7d vs previous 7d</h2>
-            <span className="muted">per category, by time spent</span>
-          </div>
-          <div className="list-inline">
-            {wows.map((w) => (
-              <span key={w.category} className="chip">
-                {w.category}
-                <b style={{ color: w.change === null ? 'var(--muted)' : w.change >= 0 ? 'var(--danger)' : 'var(--ok)' }}>
-                  {' '}{w.change === null ? 'new' : `${w.change >= 0 ? '+' : ''}${w.change}%`}
-                </b>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="card">
         <h3>Activity calendar — last 365 days</h3>
