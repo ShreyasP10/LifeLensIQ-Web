@@ -6,7 +6,7 @@ import {
   isDistractingCategory,
 } from '../lib/categories.js';
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const MODES = [
   ['productive', 'Productivity'],
@@ -53,7 +53,7 @@ export default function Heatmap({ events, days = 365 }) {
 
     const start = new Date(today);
     start.setDate(start.getDate() - (days - 1));
-    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    start.setDate(start.getDate() - start.getDay());
 
     const out = [];
     const d = new Date(start);
