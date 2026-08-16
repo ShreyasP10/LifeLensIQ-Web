@@ -10,6 +10,7 @@ import {
   limit,
   onSnapshot,
   doc,
+  getDocs,
 } from './firebase.js';
 import { isLight, toggleTheme } from './lib/theme.js';
 import { normalizeEvent } from './lib/events.js';
@@ -58,6 +59,22 @@ function Dashboard({ user }) {
   const [light, setLight] = useState(isLight());
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [deviceFilter, setDeviceFilter] = useState('all');
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState(null);
+
+  const syncNow = async () => {
+    setSyncing(true);
+    try {
+      const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));
+      const snap = await getDocs(q);
+      setEvents(snap.docs.map((d) => normalizeEvent(d.data())));
+      setLastSync(Date.now());
+    } catch (err) {
+      setDataError(err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const anomalies = useMemo(
     () => (events ? detectAnomalies(events) : []),
@@ -164,6 +181,33 @@ function Dashboard({ user }) {
             </div>
           )}
         </div>
+        <button
+          className="sync-btn"
+          onClick={syncNow}
+          disabled={syncing}
+          title={
+            lastSync
+              ? `Sync data from all devices — last synced ${new Date(lastSync).toLocaleTimeString()}`
+              : 'Sync data from all devices'
+          }
+          aria-label="Sync"
+        >
+          <svg
+            className={syncing ? 'sync-spin' : ''}
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <path d="M21 3v6h-6" />
+          </svg>
+          <span className="sync-label">{syncing ? 'Syncing…' : 'Sync'}</span>
+        </button>
         <button
           className="theme-toggle"
           onClick={() => setLight(toggleTheme())}

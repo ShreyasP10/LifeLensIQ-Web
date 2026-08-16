@@ -1331,6 +1331,43 @@ html[data-theme='light'] .heat-cell:hover {
   font-weight: 700;
   white-space: nowrap;
 }
+.sync-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--text);
+  cursor: pointer;
+  text-shadow: none;
+  box-shadow: var(--shadow-inset);
+  white-space: nowrap;
+}
+.sync-btn:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--accent);
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: var(--shadow-inset);
+  transform: none;
+  filter: none;
+}
+.sync-btn:disabled {
+  opacity: 0.7;
+}
+.sync-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.sync-spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 .alerts-badge {
   position: absolute;
   top: -5px;
