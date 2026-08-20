@@ -27,7 +27,7 @@ function notify() {
   const list = listeners.slice();
   for (const l of list) {
     try {
-      l.cb(l.makeSnapshot());
+      l.cb();
     } catch (err) {
       l.errCb && l.errCb(err);
     }
@@ -109,12 +109,12 @@ function collectionOf(docPath) {
 
 function readQuery(q) {
   const store = state().seeds;
-  const where = q.constraints.find((c) => c.type === 'where');
+  const wheres = q.constraints.filter((c) => c.type === 'where');
   const orderBy = q.constraints.find((c) => c.type === 'orderBy');
   const limit = q.constraints.find((c) => c.type === 'limit');
 
   let entries = Object.entries(store[q.path] || {});
-  if (where) {
+  for (const where of wheres) {
     entries = entries.filter(([, d]) => {
       const v = d[where.field];
       if (where.op === '==') return v === where.value;

@@ -10,10 +10,11 @@ const META_KEY = 'lifelensiq_meta';
 const PAUSE_KEY = 'lifelensiq_paused';
 const LAST_SYNC_KEY = 'lifelensiq_last_sync';
 const FOCUS_KEY = 'lifelensiq_focus';
+const OVERRIDES_KEY = 'categoryOverrides';
 
 const MIN_SEGMENT_MS = 5000;
-const MERGE_GAP_MS = 45000;
-const IDLE_THRESHOLD_SECONDS = 15;
+const MERGE_GAP_MS = 120000;
+const IDLE_THRESHOLD_SECONDS = 120;
 const TICK_MINUTES = 1;
 const MAX_BUFFER = 20000;
 const BATCH_SIZE = 450;
@@ -408,8 +409,14 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  clearSession();
+  flushSegment().catch(() => {});
   init();
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  getSession().then((s) => {
+    if (s && s.tabId === tabId) return flushSegment().catch(() => {});
+  });
 });
 
 chrome.alarms.create('tick', { periodInMinutes: TICK_MINUTES });

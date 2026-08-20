@@ -46,23 +46,40 @@ describe('demo getDocs with pagination', () => {
     }
   });
 
-  it('startAfter composes with where + orderBy', async () => {
+  it('applies every where constraint (both ts bounds)', async () => {
     const db = demo.createDemoDb();
     const col = demo.demoCollection(db, 'users', 'demo001', 'events');
-    const fromTs = 0;
-    const toTs = Date.now();
+    const all = (await demo.demoGetDocs(demo.demoQuery(col, demo.demoLimit(100000)))).docs.map((x) => x.data());
+    const ts = all.map((e) => e.ts).sort((a, b) => a - b);
+    const lo = ts[0];
+    const mid = lo + Math.floor((ts[ts.length - 1] - lo) / 2);
     const q = demo.demoQuery(
       col,
-      demo.demoWhere('ts', '>=', fromTs),
-      demo.demoWhere('ts', '<=', toTs),
+      demo.demoWhere('ts', '>=', lo),
+      demo.demoWhere('ts', '<=', mid),
       demo.demoOrderBy('ts', 'desc')
     );
-    const snap = await demo.demoGetDocs(q);
-    const res = snap.docs.map((x) => x.data());
+    const res = (await demo.demoGetDocs(q)).docs.map((x) => x.data());
     expect(res.length).toBeGreaterThan(0);
+    expect(res.length).toBeLessThan(all.length);
     for (const ev of res) {
-      expect(ev.ts).toBeGreaterThanOrEqual(fromTs);
-      expect(ev.ts).toBeLessThanOrEqual(toTs);
+      expect(ev.ts).toBeGreaterThanOrEqual(lo);
+      expect(ev.ts).toBeLessThanOrEqual(mid);
     }
+  });
+
+  it('live snapshots fire after writes', async () => {
+    const db = demo.createDemoDb();
+    const col = demo.demoCollection(db, 'users', 'demo001', 'events');
+    const seen = [];
+    const off = demo.demoOnSnapshot(demo.demoQuery(col, demo.demoLimit(100000)), (s) =>
+      seen.push(s.docs.length)
+    );
+    const before = seen[seen.length - 1];
+    await demo.demoSetDoc(demo.demoDoc(col, 'extra-live-1'), { ts: 1, id: 'extra-live-1' });
+    expect(seen[seen.length - 1]).toBe(before + 1);
+    await demo.demoDeleteDoc(demo.demoDoc(col, 'extra-live-1'));
+    expect(seen[seen.length - 1]).toBe(before);
+    off();
   });
 });

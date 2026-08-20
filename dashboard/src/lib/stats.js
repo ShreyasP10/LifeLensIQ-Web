@@ -1,4 +1,4 @@
-import { CATEGORY_WEIGHTS, isProductiveCategory } from './categories.js';
+import { CATEGORY_WEIGHTS, isProductiveCategory, isDistractingCategory } from './categories.js';
 
 export function pad(n) {
   return String(n).padStart(2, '0');
@@ -242,6 +242,37 @@ export function weekdayAgg(events) {
   });
 }
 
+export function weekdayAverages(events) {
+  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const sum = labels.map(() => ({ productive: 0, neutral: 0, distracting: 0 }));
+  const days = new Set();
+  for (const ev of events || []) {
+    const dur = Number(ev.durationSeconds) || 0;
+    if (dur <= 0 || !ev.ts) continue;
+    const w = new Date(Number(ev.ts)).getDay();
+    if (isProductiveCategory(ev.category)) sum[w].productive += dur;
+    else if (isDistractingCategory(ev.category)) sum[w].distracting += dur;
+    else sum[w].neutral += dur;
+    days.add(dayKeyLocal(new Date(Number(ev.ts))));
+  }
+  const occ = [0, 0, 0, 0, 0, 0, 0];
+  for (const key of days) {
+    const [y, m, d] = key.split('-').map(Number);
+    occ[new Date(y, m - 1, d, 12).getDay()] += 1;
+  }
+  return labels.map((label, i) => {
+    const n = occ[i] || 0;
+    const avg = (v) => Math.round(((n ? v / n : 0) / 3600) * 10) / 10;
+    return {
+      label,
+      occurrences: n,
+      productive: avg(sum[i].productive),
+      neutral: avg(sum[i].neutral),
+      distracting: avg(sum[i].distracting),
+    };
+  });
+}
+
 export function weekOverWeek(events, days, now = Date.now()) {
   const { current, previous } = comparePeriods(events, days, now);
   const cats = new Set([...Object.keys(current.byCategory), ...Object.keys(previous.byCategory)]);
@@ -336,7 +367,7 @@ export function wakeSleepForDay(events, day) {
 export function chargeSessions(events, days = 7, now = Date.now()) {
   const keys = new Set(lastNDays(days, now));
   const inRange = (events || [])
-    .filter((ev) => keys.has(dayKey(ev.ts)))
+    .filter((ev) => keys.has(dayKey(ev.ts)) || keys.has(dayKey(ev.endTs || ev.ts)))
     .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
   const sessions = [];
   let start = null;

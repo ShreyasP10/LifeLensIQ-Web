@@ -20,6 +20,7 @@ import {
   bestFocusWindow,
 streakForTarget,
   weekdayAgg,
+  weekdayAverages,
   weekOverWeek,
   focusSessions,
   manualStudyEvents,
@@ -325,11 +326,31 @@ describe('weekdayAgg and weekOverWeek', () => {
       ev('a', now - 3 * 3600000, 3600, 'Study', { endTs: now - 3 * 3600000 + 3600000 }),
       ev('b', now - 7 * day - 3600000, 3600, 'Study', { endTs: now - 7 * day - 3600000 + 3600000 }),
     ];
-    const wows = weekOverWeek(events, 7, now);
+const wows = weekOverWeek(events, 7, now);
     const study = wows.find((w) => w.category === 'Study');
     expect(study).toBeDefined();
     expect(study.current).toBe(3600);
     expect(study.change).toBe(0);
+  });
+});
+
+describe('weekdayAverages', () => {
+  it('averages per-weekday time across all events', () => {
+    const base = new Date(2026, 7, 10, 12).getTime();
+    const day = 86400000;
+    const events = [
+      ev('a', base, 3600, 'Study'),
+      ev('b', base + day, 1800, 'Study'),
+      ev('c', base + 7 * day, 7200, 'Study'),
+    ];
+    const out = weekdayAverages(events);
+    expect(out[1].label).toBe('Mon');
+    expect(out[1].occurrences).toBe(2);
+    expect(out[1].productive).toBe(1.5);
+    expect(out[1].distracting).toBe(0);
+    expect(out[2].label).toBe('Tue');
+    expect(out[2].occurrences).toBe(1);
+    expect(out[2].productive).toBe(0.5);
   });
 });
 

@@ -1,5 +1,5 @@
-const CACHE = 'lifelensiq-v1';
-const ASSETS = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
+const CACHE = 'lifelensiq-v2';
+const ASSETS = ['/', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -34,6 +34,21 @@ self.addEventListener('fetch', (e) => {
           return res;
         })
         .catch(() => caches.match('/index.html').then((r) => r || caches.match('/')))
+    );
+    return;
+  }
+
+  if (url.pathname.endsWith('/manifest.webmanifest')) {
+    e.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }

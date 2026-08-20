@@ -41,7 +41,7 @@ export default function ManualEntry({ user }) {
     const name = title.trim() || `Manual — ${d}`;
     const metadata =
       eventType === 'STUDY_SESSION'
-        ? { subject: title.trim() || d, startedAt: ts, endedAt: endTs, durationMs: min * 60000, locationType: 'web' }
+        ? { subject: title.trim() || d, startedAt: ts, endedAt: endTs, durationMs: min * 60000, locationType: 'MANUAL' }
         : { source: 'manual-entry' };
 
     setBusy(true);

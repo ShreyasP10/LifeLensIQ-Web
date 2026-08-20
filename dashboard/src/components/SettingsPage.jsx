@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   auth,
   db,
@@ -25,6 +25,10 @@ export default function SettingsPage({ user, settings, events }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busyDelete, setBusyDelete] = useState(false);
 
+  useEffect(() => {
+    setTarget(String(settings.focusTargetMinutes || 120));
+  }, [settings.focusTargetMinutes]);
+
   const devices = (() => {
     const m = new Map();
     let legacy = 0;
@@ -36,13 +40,13 @@ export default function SettingsPage({ user, settings, events }) {
       rec.count += 1;
       if (Number(ev.ts) > rec.lastTs) rec.lastTs = Number(ev.ts);
       m.set(dev, rec);
-      if (!ev.eventId || ev.eventId === ev.id) {
+      if (!ev.eventId) {
+        legacy += 1;
         if (ev.id && seenIds.has(ev.id)) dupes += 1;
         seenIds.add(ev.id || '');
       } else {
         if (seenIds.has(ev.eventId)) dupes += 1;
         seenIds.add(ev.eventId);
-        if (!ev.eventId) legacy += 1;
       }
     }
     return {
