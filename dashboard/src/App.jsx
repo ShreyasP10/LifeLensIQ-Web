@@ -85,7 +85,7 @@ function Dashboard({ user }) {
 
   const eventDevice = (ev) =>
     ev.deviceId ||
-    (ev.device === 'web' ? 'web' : ev.domain || ev.path || ev.title ? 'web' : 'unknown');
+    (ev.device && ev.device !== 'web' && ev.device !== 'extension' ? ev.device : 'web');
 
   const deviceOptions = useMemo(() => {
     const set = new Set();

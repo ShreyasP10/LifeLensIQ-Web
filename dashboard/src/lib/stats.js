@@ -367,7 +367,7 @@ export function wakeSleepForDay(events, day) {
 export function chargeSessions(events, days = 7, now = Date.now()) {
   const keys = new Set(lastNDays(days, now));
   const inRange = (events || [])
-    .filter((ev) => keys.has(dayKey(ev.ts)))
+    .filter((ev) => keys.has(dayKey(ev.ts)) || keys.has(dayKey(ev.endTs || ev.ts)))
     .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
   const sessions = [];
   let start = null;

@@ -189,7 +189,8 @@ async function pomoReset() {
 }
 
 function pomoFinish() {
-  if (pomo.kind === 'focus') {
+  const finishedKind = pomo.kind;
+  if (finishedKind === 'focus') {
     chrome.runtime.sendMessage({ type: 'pomodoroDone', minutes: pomo.minutes, cycles: pomo.cycles + 1 }).catch(() => {});
     pomo.cycles += 1;
     pomo.kind = 'break';
@@ -205,9 +206,9 @@ function pomoFinish() {
   chrome.notifications.create({
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-    title: pomo.kind === 'focus' ? 'Pomodoro complete' : 'Break over',
+    title: finishedKind === 'focus' ? 'Pomodoro complete' : 'Break over',
     message:
-      pomo.kind === 'focus'
+      finishedKind === 'focus'
         ? `Focus session logged (${pomo.cycles} today). Break time.`
         : 'Back to focus — start another 25 min.',
   }).catch(() => {});
