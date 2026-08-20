@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   auth,
   db,
@@ -83,7 +83,9 @@ function Dashboard({ user }) {
   const [dismissed, setDismissed] = useState({});
   const activeAlerts = anomalies.filter((a) => !dismissed[a.title]);
 
-  const eventDevice = (ev) => ev.deviceId || (ev.device === 'web' ? 'web' : 'unknown');
+  const eventDevice = (ev) =>
+    ev.deviceId ||
+    (ev.device === 'web' ? 'web' : ev.domain || ev.path || ev.title ? 'web' : 'unknown');
 
   const deviceOptions = useMemo(() => {
     const set = new Set();
@@ -103,6 +105,13 @@ function Dashboard({ user }) {
     if (deviceFilter === 'all') return events;
     return events.filter((ev) => eventDevice(ev) === deviceFilter);
   }, [events, deviceFilter]);
+
+  const syncRef = useRef(null);
+  syncRef.current = syncNow;
+  useEffect(() => {
+    const t = setInterval(() => syncRef.current(), 24 * 60 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));

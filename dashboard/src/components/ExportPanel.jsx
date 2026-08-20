@@ -24,7 +24,8 @@ export default function ExportPanel({ user, deviceFilter = 'all' }) {
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
 
-  const eventDevice = (ev) => ev.deviceId || (ev.device === 'web' ? 'web' : 'unknown');
+  const eventDevice = (ev) =>
+    ev.deviceId || (ev.device === 'web' ? 'web' : ev.domain || ev.path || ev.title ? 'web' : 'unknown');
 
   function defaultRange() {
     const end = new Date();

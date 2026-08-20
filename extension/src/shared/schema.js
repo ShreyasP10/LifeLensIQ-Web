@@ -1,5 +1,6 @@
 export const SCHEMA_VERSION = 1;
 export const DEVICE_EXTENSION = 'web';
+export const DEVICE_ID_WEB = 'web';
 
 export function makeEventId() {
   return crypto.randomUUID();
@@ -22,6 +23,7 @@ export function buildEvent(session) {
     eventType: session.eventType || 'tab_active',
     metadata: buildMetadata(session),
     device: DEVICE_EXTENSION,
+    deviceId: DEVICE_ID_WEB,
     schemaVersion: SCHEMA_VERSION,
   };
 }

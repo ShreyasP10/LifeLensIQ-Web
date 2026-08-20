@@ -12,8 +12,8 @@ const LAST_SYNC_KEY = 'lifelensiq_last_sync';
 const FOCUS_KEY = 'lifelensiq_focus';
 
 const MIN_SEGMENT_MS = 5000;
-const MERGE_GAP_MS = 45000;
-const IDLE_THRESHOLD_SECONDS = 15;
+const MERGE_GAP_MS = 120000;
+const IDLE_THRESHOLD_SECONDS = 120;
 const TICK_MINUTES = 1;
 const MAX_BUFFER = 20000;
 const BATCH_SIZE = 450;

@@ -29,6 +29,7 @@ import {
   deepFocusSessions,
   formatTime,
   focusSessions,
+  weekdayAverages,
 } from '../lib/stats.js';
 import {
   categoryColor,
@@ -123,25 +124,7 @@ const [activeSlice, setActiveSlice] = useState(null);
     [range, summary, rangeEvents]
   );
   const focus = useMemo(() => focusSessions(rangeEvents), [rangeEvents]);
-  const weekdayBars = useMemo(() => {
-    const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const data = labels.map((label) => ({ label, productive: 0, neutral: 0, distracting: 0 }));
-    for (const ev of rangeEvents) {
-      const dur = Number(ev.durationSeconds) || 0;
-      if (dur <= 0) continue;
-      const w = new Date(Number(ev.ts)).getDay();
-      const c = ev.category;
-      if (isProductiveCategory(c)) data[w].productive += dur / 3600;
-      else if (isDistractingCategory(c)) data[w].distracting += dur / 3600;
-      else data[w].neutral += dur / 3600;
-    }
-    return data.map((r) => ({
-      ...r,
-      productive: Math.round(r.productive * 10) / 10,
-      neutral: Math.round(r.neutral * 10) / 10,
-      distracting: Math.round(r.distracting * 10) / 10,
-    }));
-  }, [rangeEvents]);
+  const weekdayBars = useMemo(() => weekdayAverages(events), [events]);
   const scoreDelta = cur.score - prev.score;
   const activePct = pctChange(cur.totalSeconds, prev.totalSeconds);
   const rangeLabel = range === 'today' ? 'today' : `last ${rangeDays} days`;
@@ -240,6 +223,7 @@ const [activeSlice, setActiveSlice] = useState(null);
                   : `Active time ${activePct >= 0 ? '+' : ''}${activePct}% vs previous period`}
               </span>
             </div>
+            <div className="hint">Auto-refreshes every 24 h — use Sync in the nav to refresh anytime.</div>
           </div>
         </div>
       </div>
@@ -327,7 +311,7 @@ const [activeSlice, setActiveSlice] = useState(null);
 
       <div className="grid">
         <div className="card" style={{ gridColumn: 'span 2' }}>
-          <h3>By weekday ({rangeLabel}, hours)</h3>
+          <h3>By weekday — average per day (all time, hours)</h3>
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weekdayBars}>
@@ -354,14 +338,26 @@ const [activeSlice, setActiveSlice] = useState(null);
             <span className="muted">per category, by time spent</span>
           </div>
           <div className="list-inline">
-            {wows.map((w) => (
-              <span key={w.category} className="chip">
-                {w.category}
-                <b style={{ color: w.change === null ? 'var(--muted)' : w.change >= 0 ? 'var(--danger)' : 'var(--ok)' }}>
-                  {' '}{w.change === null ? 'new' : `${w.change >= 0 ? '+' : ''}${w.change}%`}
-                </b>
-              </span>
-            ))}
+            {wows.map((w) => {
+              const good =
+                w.change === null
+                  ? null
+                  : isProductiveCategory(w.category)
+                    ? w.change >= 0
+                    : isDistractingCategory(w.category)
+                      ? w.change < 0
+                      : null;
+              const color =
+                good === null ? 'var(--muted)' : good ? 'var(--ok)' : 'var(--danger)';
+              return (
+                <span key={w.category} className="chip">
+                  {w.category}
+                  <b style={{ color }}>
+                    {' '}{w.change === null ? 'new' : `${w.change >= 0 ? '+' : ''}${w.change}%`}
+                  </b>
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
