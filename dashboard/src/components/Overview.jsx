@@ -58,10 +58,6 @@ function dayLabel(key) {
 
 export default function Overview({ user, events, settings }) {
   const [, setTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setTick((x) => x + 1), 60000);
-    return () => clearInterval(t);
-  }, []);
   const now = Date.now();
   const [range, setRange] = useState('7d');
 const [activeSlice, setActiveSlice] = useState(null);
@@ -214,7 +210,9 @@ const [activeSlice, setActiveSlice] = useState(null);
             </div>
             <div className="trend-row">
               <span className={`trend ${scoreDelta >= 0 ? 'up' : 'down'}`}>
-                Score {scoreDelta >= 0 ? '▲' : '▼'} {Math.abs(scoreDelta)} pts vs previous
+                {range === 'today' && prev.score === 0
+                  ? 'New'
+                  : `Score ${scoreDelta >= 0 ? '▲' : '▼'} ${Math.abs(scoreDelta)} pts vs previous`}
                 {range === 'today' ? ' day' : ` ${rangeDays}d`}
               </span>
               <span className={`trend ${activePct === null ? '' : activePct >= 0 ? 'up' : 'down'}`}>
@@ -224,6 +222,9 @@ const [activeSlice, setActiveSlice] = useState(null);
               </span>
             </div>
             <div className="hint">Auto-refreshes every 24 h — use Sync in the nav to refresh anytime.</div>
+            <div className="hint" style={{ fontSize: 12, marginTop: 8 }}>
+              Weekly goal: {Math.round((settings.focusTargetMinutes || 0) * 7)} min (daily × 7)
+            </div>
           </div>
         </div>
       </div>

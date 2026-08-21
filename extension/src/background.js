@@ -209,42 +209,46 @@ async function onTabChanged(tabId) {
 /* ---------------- capture: tick ---------------- */
 
 async function tick() {
-  if (!authReady) await init();
-  if (await getPaused()) {
-    await flushSegment();
-    return;
-  }
-  const idleState = await chrome.idle.queryState(IDLE_THRESHOLD_SECONDS);
-  if (idleState === 'idle') {
-    await flushSegment();
-    return;
-  }
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
-  const tab = tabs[0];
-  if (!tab || !tab.url || !isHttp(tab.url)) return;
-
-  let s = await getSession();
-  if (!s || s.tabId !== tab.id) {
-    await flushSegment();
-    s = await startSegmentForTab(tab.id);
-    if (!s) return;
-  } else {
-    if (isPdfUrl(tab.url) && s.eventType === 'tab_active') {
-      s.eventType = 'pdf_view';
-    }
-    if (SHORT_URL_RE.test(tab.url) && s.eventType !== 'short_video') {
-      s.eventType = 'short_video';
-      s.category = CATEGORIES.SHORT_VIDEO;
-      if (s.shorts.lastUrl !== tab.url) {
-        s.shorts.views += 1;
-        s.shorts.lastUrl = tab.url;
+  try {
+    if (!authReady) await init();
+    if (await getPaused()) {
+      await flushSegment();
+    } else {
+      const idleState = await chrome.idle.queryState(IDLE_THRESHOLD_SECONDS);
+      if (idleState === 'idle') {
+        await flushSegment();
+      } else {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+        const tab = tabs[0];
+        if (tab && tab.url && isHttp(tab.url)) {
+          let s = await getSession();
+          if (!s || s.tabId !== tab.id) {
+            await flushSegment();
+            s = await startSegmentForTab(tab.id);
+          }
+          if (s) {
+            if (isPdfUrl(tab.url) && s.eventType === 'tab_active') {
+              s.eventType = 'pdf_view';
+            }
+            if (SHORT_URL_RE.test(tab.url) && s.eventType !== 'short_video') {
+              s.eventType = 'short_video';
+              s.category = CATEGORIES.SHORT_VIDEO;
+              if (s.shorts.lastUrl !== tab.url) {
+                s.shorts.views += 1;
+                s.shorts.lastUrl = tab.url;
+              }
+            }
+            s.title = tab.title || s.title;
+            s.lastTs = Date.now();
+            await setSession(s);
+          }
+        }
       }
     }
-    s.title = tab.title || s.title;
-    s.lastTs = Date.now();
-    await setSession(s);
+    await syncBuffer();
+  } catch (err) {
+    console.warn('LifeLensIQ tick failed:', err);
   }
-  await syncBuffer();
 }
 
 /* ---------------- content script messages ---------------- */
@@ -370,6 +374,7 @@ function init() {
         syncBuffer();
       } catch (err) {
         console.warn('LifeLensIQ firebase init failed:', err.message);
+        initPromise = null;
       }
     })();
   }
