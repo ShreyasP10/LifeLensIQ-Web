@@ -222,6 +222,9 @@ const [activeSlice, setActiveSlice] = useState(null);
               </span>
             </div>
             <div className="hint">Auto-refreshes every 24 h — use Sync in the nav to refresh anytime.</div>
+            <div className="hint" style={{ fontSize: 12, marginTop: 8 }}>
+              Weekly goal: {Math.round((settings.focusTargetMinutes || 0) * 7)} min (daily × 7)
+            </div>
           </div>
         </div>
       </div>
