@@ -11,6 +11,7 @@ import {
   onSnapshot,
   doc,
   getDocs,
+  deleteDoc,
 } from './firebase.js';
 import { isLight, toggleTheme } from './lib/theme.js';
 import { normalizeEvent } from './lib/events.js';
@@ -112,6 +113,17 @@ function Dashboard({ user }) {
     const t = setInterval(() => syncRef.current(), 24 * 60 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
+
+  const deleteEvent = async (eventId) => {
+    if (!window.confirm('Delete this timeline entry?')) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'events', eventId));
+      // Optimistic update
+      setEvents((prev) => prev ? prev.filter((e) => e.id !== eventId) : null);
+    } catch (err) {
+      setDataError(err.message);
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));
@@ -275,7 +287,7 @@ function Dashboard({ user }) {
           />
         )}
         {tab === 'trends' && <Trends events={filteredEvents} />}
-        {tab === 'timeline' && <Timeline events={filteredEvents} />}
+        {tab === 'timeline' && <Timeline events={filteredEvents} onDelete={deleteEvent} />}
         {tab === 'export' && <ExportPanel user={user} deviceFilter={deviceFilter} />}
         {tab === 'leaderboard' && <Leaderboard user={user} events={filteredEvents} />}
         {tab === 'log' && <ManualEntry user={user} />}
