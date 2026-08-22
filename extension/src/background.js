@@ -18,6 +18,7 @@ const IDLE_THRESHOLD_SECONDS = 120;
 const TICK_MINUTES = 1;
 const MAX_BUFFER = 20000;
 const BATCH_SIZE = 450;
+const MAX_SESSION_MS = 4 * 60 * 60 * 1000; // 4h hard cap
 const WRITING_DOMAINS = ['docs.google.com', 'office.com', 'live.com', 'onedrive.com'];
 
 let auth = null;
@@ -227,20 +228,25 @@ async function tick() {
             s = await startSegmentForTab(tab.id);
           }
           if (s) {
-            if (isPdfUrl(tab.url) && s.eventType === 'tab_active') {
-              s.eventType = 'pdf_view';
-            }
-            if (SHORT_URL_RE.test(tab.url) && s.eventType !== 'short_video') {
-              s.eventType = 'short_video';
-              s.category = CATEGORIES.SHORT_VIDEO;
-              if (s.shorts.lastUrl !== tab.url) {
-                s.shorts.views += 1;
-                s.shorts.lastUrl = tab.url;
+            // Hard cap: force flush if session exceeds 4h (prevents overnight runaway)
+            if (Date.now() - s.startTs > MAX_SESSION_MS) {
+              await flushSegment();
+            } else {
+              if (isPdfUrl(tab.url) && s.eventType === 'tab_active') {
+                s.eventType = 'pdf_view';
               }
+              if (SHORT_URL_RE.test(tab.url) && s.eventType !== 'short_video') {
+                s.eventType = 'short_video';
+                s.category = CATEGORIES.SHORT_VIDEO;
+                if (s.shorts.lastUrl !== tab.url) {
+                  s.shorts.views += 1;
+                  s.shorts.lastUrl = tab.url;
+                }
+              }
+              s.title = tab.title || s.title;
+              s.lastTs = Date.now();
+              await setSession(s);
             }
-            s.title = tab.title || s.title;
-            s.lastTs = Date.now();
-            await setSession(s);
           }
         }
       }
@@ -449,6 +455,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.idle.onStateChanged.addListener((state) => {
   if (state === 'idle') {
     flushSegment();
+  }
+});
+
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    flushSegment().catch(() => {});
   }
 });
 
