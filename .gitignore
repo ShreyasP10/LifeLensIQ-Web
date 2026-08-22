@@ -5,3 +5,4 @@ dist/
 .env.local
 .netlify/
 firebase-debug.log
+serviceAccountKey.json
