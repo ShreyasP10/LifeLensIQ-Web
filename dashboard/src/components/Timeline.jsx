@@ -6,7 +6,7 @@ import WakeSleepCard from './WakeSleepCard.jsx';
 
 const PAGE = 200;
 
-export default function Timeline({ events }) {
+export default function Timeline({ events, onDelete }) {
   const today = new Date();
   const [date, setDate] = useState(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
   const [shown, setShown] = useState(PAGE);
@@ -142,6 +142,9 @@ export default function Timeline({ events }) {
             <div className="dur">
               {formatDuration(ev.durationSeconds)}
               <button className="mini" onClick={() => setDrilldown(ev.domain)} title={`Analyse ${ev.domain}`}>Analyse</button>
+              {onDelete && (
+                <button className="mini danger" onClick={() => onDelete(ev.id)} title="Delete this entry">Delete</button>
+              )}
             </div>
           </div>
         ))}
