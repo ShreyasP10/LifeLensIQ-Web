@@ -27,17 +27,24 @@ async function allowDomain() {
   const input = el('allow-input').value.trim().toLowerCase().replace(/^www\./, '');
   const target = input || domain;
   if (!target) return;
-  const res = await chrome.runtime.sendMessage({ type: 'getFocusState' }).catch(() => null);
-  const list = (res && res.allowlist) || [];
-  if (!list.includes(target)) list.push(target);
-  await chrome.runtime.sendMessage({ type: 'startFocus', allowlist: list }).catch(() => {});
-  el('msg').classList.remove('hidden');
-  el('msg').textContent = `${target} added to allowlist. You can close this tab and continue.`;
-  if (input) {
-    chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-      const tab = tabs[0];
-      if (tab && tab.url) chrome.tabs.update(tab.id, { url: `https://${target}` });
-    });
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'getFocusState' }).catch(() => null);
+    const list = (res && res.allowlist) || [];
+    if (!list.includes(target)) list.push(target);
+    await chrome.runtime.sendMessage({ type: 'startFocus', allowlist: list });
+    el('msg').classList.remove('hidden');
+    el('msg').textContent = `${target} added to allowlist. You can close this tab and continue.`;
+    if (input) {
+      chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+        const tab = tabs[0];
+        if (tab && tab.url) chrome.tabs.update(tab.id, { url: `https://${target}` }).catch(() => {
+          el('msg').textContent = 'Could not navigate to the domain. Check your connection.';
+        });
+      });
+    }
+  } catch (err) {
+    el('msg').classList.remove('hidden');
+    el('msg').textContent = 'Failed to update allowlist: ' + err.message;
   }
 }
 
@@ -48,7 +55,7 @@ el('allow-input').addEventListener('keydown', (e) => {
 el('stop-btn').addEventListener('click', async () => {
   await chrome.runtime.sendMessage({ type: 'stopFocus' }).catch(() => {});
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab && tab.url && tab.url.startsWith(chrome.runtime.getURL(''))) {
+  if (tab && tab.url && tab.url.startsWith(chrome.runtime.getURL('')) && domain) {
     chrome.tabs.update(tab.id, { url: `https://${domain}` }).catch(() => {});
   }
   el('msg').classList.remove('hidden');
