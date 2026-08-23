@@ -58,7 +58,10 @@ function renderButton(on) {
   const { [KEY]: state } = await chrome.storage.local.get(KEY);
   apply(state && state.on);
   renderButton(state && state.on);
-  obs = new MutationObserver(() => renderButton(Boolean(state && state.on)));
-  obs.observe(document.documentElement, { childList: true, subtree: true });
-  setTimeout(() => obs && obs.disconnect(), 30000);
+  const masthead = document.querySelector('#masthead-container');
+  if (masthead) {
+    obs = new MutationObserver(() => renderButton(Boolean(state && state.on)));
+    obs.observe(masthead, { childList: true, subtree: false });
+    setTimeout(() => obs && obs.disconnect(), 30000);
+  }
 })();

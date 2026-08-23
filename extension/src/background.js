@@ -27,6 +27,8 @@ let authReady = false;
 let currentUser = null;
 let syncFailures = 0;
 let lastSyncAttempt = 0;
+let unsubscribeSettings = null;
+let flushQueue = Promise.resolve();
 
 /* ---------------- storage helpers ---------------- */
 
@@ -116,12 +118,13 @@ function openSegment(tab) {
     path,
     title: tab.title || '',
     eventType: 'tab_active',
-    category: null,
+    category: null, // Will be classified in flushSegment with overrides
     startTs: Date.now(),
     lastTs: Date.now(),
     typingBursts: 0,
     shorts: { views: 0, seconds: 0, lastUrl: '' },
     device: 'extension',
+    userId: currentUser?.uid || '', // Capture userId at segment start
   };
   if (isPdfUrl(tab.url)) {
     s.eventType = 'pdf_view';
@@ -133,14 +136,16 @@ function openSegment(tab) {
   } else if (WRITING_DOMAINS.includes(domain)) {
     s.eventType = 'writing_session';
   }
-  s.category = s.category || classify(domain, path, {});
-  if (s.eventType === 'pdf_view' && s.category === CATEGORIES.OTHER) {
-    s.category = CATEGORIES.STUDY;
-  }
+  // Category will be classified in flushSegment with latest overrides
   return s;
 }
 
 async function flushSegment() {
+  flushQueue = flushQueue.then(() => _flushSegment());
+  return flushQueue;
+}
+
+async function _flushSegment() {
   const s = await getSession();
   if (!s) return;
   const now = Date.now();
@@ -155,7 +160,7 @@ async function flushSegment() {
   if (s.eventType === 'short_video') {
     s.shorts.seconds = Math.round(durationMs / 1000);
   }
-  s.userId = currentUser?.uid || '';
+  if (!s.userId) return; // Discard events without valid userId
   const focus = await getFocus();
   s.focus = Boolean(focus.active && !isFocusBlocked(s.domain, focus));
   const ev = buildEvent(s);
@@ -167,13 +172,14 @@ async function flushSegment() {
     last.domain === ev.domain &&
     last.eventType === ev.eventType &&
     last.category === ev.category &&
+    last.tabId === ev.tabId && // ← ADD tabId check
     last.endTs &&
     ev.ts >= last.ts &&
     ev.ts - last.endTs <= MERGE_GAP_MS;
 
   if (sameSite) {
     last.endTs = ev.endTs;
-    last.durationSeconds = Math.max(1, Math.round((ev.endTs - last.ts) / 1000));
+    last.durationSeconds = Math.max(0, Math.round((ev.endTs - last.ts) / 1000));
     last.title = ev.title || last.title;
     last.path = ev.path || last.path;
   } else {
@@ -185,7 +191,7 @@ async function flushSegment() {
 
 async function startSegmentForTab(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
-  if (!tab || !tab.url || !isHttp(tab.url)) return null;
+  if (!tab || !tab.url || !(isHttp(tab.url) || isPdfUrl(tab.url))) return null;
   const focus = await getFocus();
   const domain = parseDomain(tab.url);
   if (isFocusBlocked(domain, focus)) {
@@ -221,7 +227,7 @@ async function tick() {
       } else {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
         const tab = tabs[0];
-        if (tab && tab.url && isHttp(tab.url)) {
+        if (tab && tab.url && (isHttp(tab.url) || isPdfUrl(tab.url))) {
           let s = await getSession();
           if (!s || s.tabId !== tab.id) {
             await flushSegment();
@@ -315,7 +321,10 @@ async function syncBuffer() {
     syncFailures = 0;
     return;
   }
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    lastSyncAttempt = Date.now(); // Set backoff even when offline
+    return;
+  }
 
   const backoffMs = Math.min(syncFailures, 5) * 60 * 1000;
   if (Date.now() - lastSyncAttempt < backoffMs) return;
@@ -336,6 +345,11 @@ async function syncBuffer() {
       await batch.commit();
       committedIds.push(...chunk.map((e) => e.id));
     } catch (err) {
+      if (err.code === 'resource-exhausted') {
+        // Quota exceeded: wait longer and retry on next tick
+        syncFailures = 0; // Don't count quota errors as failures
+        return; // Will retry on next tick
+      }
       syncFailures += 1;
       console.warn('LifeLensIQ sync chunk failed', err);
       break;
@@ -348,7 +362,7 @@ async function syncBuffer() {
     syncFailures = 0;
     lastSyncAttempt = 0;
     await setLastSyncTs();
-    broadcastSyncStatus();
+    broadcastSyncStatus(remaining.length); // Send actual pending count
   }
 }
 
@@ -374,6 +388,7 @@ function init() {
           if (user) {
             ensureSettingsDoc(user);
             loadOverrides(user);
+            listenForOverrides(user); // Real-time overrides updates
           }
         });
         authReady = true;
@@ -408,6 +423,19 @@ async function loadOverrides(user) {
       await chrome.storage.local.set({ [OVERRIDES_KEY]: data.domainCategories });
     }
   }
+}
+
+function listenForOverrides(user) {
+  if (unsubscribeSettings) unsubscribeSettings();
+  const ref = doc(db, 'users', user.uid, 'settings', 'profile');
+  unsubscribeSettings = onSnapshot(ref, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.domainCategories) {
+        chrome.storage.local.set({ [OVERRIDES_KEY]: data.domainCategories });
+      }
+    }
+  });
 }
 
 chrome.runtime.onInstalled.addListener(() => {

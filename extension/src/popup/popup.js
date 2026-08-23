@@ -42,23 +42,35 @@ function fmtElapsed(startTs) {
   return `${s}s`;
 }
 
-function todaySummary(buffer) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const startTs = start.getTime();
+async function getTodayActiveSeconds() {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const startTs = startOfDay.getTime();
   const now = Date.now();
   let seconds = 0;
-  let count = 0;
-  const byCat = {};
+
+  // Local buffer
+  const { lifelensiq_buffer: buffer = [] } = await chrome.storage.local.get('lifelensiq_buffer');
   for (const ev of buffer) {
-    if (ev.ts >= startTs && ev.ts <= now) {
-      seconds += ev.durationSeconds;
-      count += 1;
-      const c = ev.category || 'Other';
-      byCat[c] = (byCat[c] || 0) + ev.durationSeconds;
+    if (ev.ts >= startTs && ev.ts <= now) seconds += ev.durationSeconds || 0;
+  }
+
+  // Firestore synced events
+  const fb = getFirebase();
+  if (fb.db && fb.auth.currentUser) {
+    try {
+      const q = query(
+        collection(fb.db, 'users', fb.auth.currentUser.uid, 'events'),
+        where('ts', '>=', startTs),
+        where('ts', '<=', Date.now())
+      );
+      const snap = await getDocs(q);
+      snap.forEach(doc => { seconds += doc.data().durationSeconds || 0; });
+    } catch {
+      // Ignore errors
     }
   }
-  return { seconds, count, byCat };
+  return seconds;
 }
 
 function renderCategories(byCat) {
@@ -120,7 +132,8 @@ async function refresh() {
 
   const { lifelensiq_buffer: buffer = [] } = await chrome.storage.local.get('lifelensiq_buffer');
   const today = todaySummary(buffer);
-  el('today-active').textContent = `${Math.round(today.seconds / 60)} min`;
+  const todayActiveSeconds = await getTodayActiveSeconds();
+  el('today-active').textContent = `${Math.round(todayActiveSeconds / 60)} min`;
   el('pending-sync').textContent = state
     ? `${s.pending}${!s.online ? ' (offline)' : ''}`
     : '— (reload extension)';
@@ -260,7 +273,7 @@ async function initPomodoro() {
 async function renderWeeklyNudge() {
   const box = el('weekly-nudge');
   const fb = getFirebase();
-  if (!fb.db) return;
+  if (!fb.db || !fb.auth.currentUser) return;
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() - (start.getDay() || 7) + 1);

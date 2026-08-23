@@ -7,7 +7,7 @@ export function makeEventId() {
 }
 
 export function buildEvent(session) {
-  const durationSeconds = Math.max(1, Math.round((session.lastTs - session.startTs) / 1000));
+  const durationSeconds = Math.max(0, Math.round((session.lastTs - session.startTs) / 1000));
   return {
     id: session.eventId,
     eventId: session.eventId,
