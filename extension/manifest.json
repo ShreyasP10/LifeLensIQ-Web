@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LifeLensIQ Tracker",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Passive browser activity tracker for LifeLensIQ personal analytics (prototype). Focus mode, pomodoro, YouTube distraction-free.",
   "permissions": ["storage", "tabs", "idle", "alarms", "notifications"],
   "host_permissions": ["<all_urls>"],
