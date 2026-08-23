@@ -2,7 +2,7 @@ import { initFirebase, initAuth } from './shared/firebase.js';
 import { classify, SHORT_URL_RE, CATEGORIES } from './shared/categories.js';
 import { buildEvent, makeEventId } from './shared/schema.js';
 import { getAuth, onAuthStateChanged } from 'firebase/auth/web-extension';
-import { getFirestore, writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, writeBatch, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 const SESSION_KEY = 'lifelensiq_session';
 const BUFFER_KEY = 'lifelensiq_buffer';
