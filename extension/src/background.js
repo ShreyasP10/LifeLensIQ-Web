@@ -1,5 +1,5 @@
 import { initFirebase, initAuth } from './shared/firebase.js';
-import { classify, SHORT_URL_RE, CATEGORIES } from './shared/categories.js';
+import { classify, classifyYouTubeTitle, SHORT_URL_RE, CATEGORIES } from './shared/categories.js';
 import { buildEvent, makeEventId } from './shared/schema.js';
 import { getAuth, onAuthStateChanged } from 'firebase/auth/web-extension';
 import { getFirestore, writeBatch, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -153,7 +153,14 @@ async function _flushSegment() {
   await clearSession();
   if (durationMs < MIN_SEGMENT_MS) return;
   s.lastTs = now;
-  s.category = classify(s.domain, s.path, await getOverrides());
+  // Use YouTube title classifier for YouTube URLs to properly categorize tutorials/lectures
+  if (s.domain === 'youtube.com' && s.title) {
+    const ytCategory = classifyYouTubeTitle(s.title);
+    if (ytCategory) s.category = ytCategory;
+  }
+  if (!s.category) {
+    s.category = classify(s.domain, s.path, await getOverrides());
+  }
   if (s.eventType === 'pdf_view' && (s.category === CATEGORIES.OTHER || !s.category)) {
     s.category = CATEGORIES.STUDY;
   }
@@ -554,6 +561,39 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   } else if (msg.type === 'pomodoroDone') {
     recordPomodoro(msg.minutes || 25, msg.cycles || 1).then(() => sendResponse({ ok: true }));
+    return true;
+  } else if (msg.type === 'YOUTUBE_TITLE_CHANGED') {
+    (async () => {
+      const tabId = msg.tabId || sender.tab?.id;
+      const title = msg.title;
+      const url = msg.url;
+      if (!tabId || !title) return;
+
+      // Ignore Shorts
+      if (url.includes('/shorts/') || url.includes('/shorts?') || url.includes('/reel/') || url.includes('/reels/')) {
+        return;
+      }
+
+      const category = classifyYouTubeTitle(title);
+      if (!category) return;
+
+      // Get current session for this tab
+      const s = await getSession();
+      if (s && s.tabId === tabId && s.domain === 'youtube.com') {
+        // Check if category changed
+        if (s.category !== category) {
+          // Flush current session and start new one with new category
+          await flushSegment();
+          const s2 = await startSegmentForTab(msg.tabId);
+          if (s2) {
+            // Force category to the classified one
+            s2.category = category;
+            await setSession(s2);
+          }
+        }
+      }
+      sendResponse({ ok: true, category });
+    })();
     return true;
   }
   sendResponse({ ok: true });

@@ -38,6 +38,54 @@ export const CATEGORY_WEIGHTS = {
 
 export const SHORT_URL_RE = /\/shorts\/|\/reel\/|\/reels\//i;
 
+const STUDY_KEYWORDS = [
+  'tutorial', 'lecture', 'course', 'learn', 'lesson', 'education',
+  'explained', 'guide', 'how to', 'crash course', 'full course',
+  'beginner', 'advanced', 'introduction', 'basics', 'fundamentals'
+];
+
+const DEV_KEYWORDS = [
+  'programming', 'code', 'coding', 'developer', 'software',
+  'javascript', 'python', 'java', 'c++', 'c#', 'html', 'css',
+  'react', 'angular', 'vue', 'node', 'sql', 'database',
+  'data structure', 'algorithm', 'dsa', 'leetcode', 'machine learning',
+  'ai', 'artificial intelligence', 'deep learning'
+];
+
+const DSA_KEYWORDS = [
+  'data structure', 'algorithm', 'leetcode', 'dsa',
+  'binary tree', 'linked list', 'dynamic programming',
+  'graph', 'sorting', 'searching', 'recursion', 'stack', 'queue'
+];
+
+const PRODUCTIVITY_KEYWORDS = [
+  'productivity', 'study with me', 'focus', 'time management',
+  'notion', 'obsidian', 'note taking', 'exam prep',
+  'upsc', 'gate', 'neet', 'jee', 'cat', 'gre', 'toefl'
+];
+
+export function classifyYouTubeTitle(title) {
+  const t = title.toLowerCase();
+  
+  // Shorts are already handled via URL pattern, but skip if title contains '#shorts'
+  if (t.includes('#shorts')) return null; // let URL rule handle it
+
+  // DSA specific (highest priority)
+  if (DSA_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.DSA;
+  
+  // Study (generic educational) - check before Development
+  if (STUDY_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.STUDY;
+  
+  // Productivity
+  if (PRODUCTIVITY_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.PRODUCTIVITY;
+  
+  // Development (programming but not explicitly tutorial/lecture)
+  if (DEV_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.DEVELOPMENT;
+  
+  // Default: entertainment
+  return CATEGORIES.ENTERTAINMENT;
+}
+
 const RULES = [
   // Education + college resources
   [CATEGORIES.STUDY, ['moodle.org', 'elearn.apsit.edu.in', 'apsit.edu.in', 'coursera.org', 'udemy.com', 'edx.org', 'nptel.ac.in', 'khanacademy.org', 'classcentral.com', 'futurelearn.com', 'swayam.gov.in', 'byjus.com', 'unacademy.com', 'studocu.com', 'javatpoint.com', 'tutorialspoint.com', 'mitocw', 'ted.com']],

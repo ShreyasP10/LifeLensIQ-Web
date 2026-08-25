@@ -41,7 +41,7 @@
     },
     {
       "matches": ["*://*.youtube.com/*"],
-      "js": ["content-youtube-focus.js"],
+      "js": ["content-youtube-focus.js", "content-youtube-title-watcher.js"],
       "run_at": "document_idle"
     }
   ],

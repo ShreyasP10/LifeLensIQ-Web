@@ -24,6 +24,7 @@ await build({ ...common, entryPoints: { background: 'src/background.js' } });
 await build({ ...common, entryPoints: { 'content-shorts': 'src/content/shorts.js' } });
 await build({ ...common, entryPoints: { 'content-writing': 'src/content/writing.js' } });
 await build({ ...common, entryPoints: { 'content-youtube-focus': 'src/content/youtube-focus.js' } });
+await build({ ...common, entryPoints: { 'content-youtube-title-watcher': 'src/content/youtube-title-watcher.js' } });
 await build({ ...common, entryPoints: { focus: 'src/focus.js' } });
 await build({ ...common, entryPoints: { 'popup/popup': 'src/popup/popup.js' } });
 await build({ ...common, entryPoints: { 'options/options': 'src/options/options.js' } });
