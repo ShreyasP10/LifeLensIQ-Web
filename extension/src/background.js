@@ -153,7 +153,14 @@ async function _flushSegment() {
   await clearSession();
   if (durationMs < MIN_SEGMENT_MS) return;
   s.lastTs = now;
-  s.category = classify(s.domain, s.path, await getOverrides());
+  // Use YouTube title classifier for YouTube URLs to properly categorize tutorials/lectures
+  if (s.domain === 'youtube.com' && s.title) {
+    const ytCategory = classifyYouTubeTitle(s.title);
+    if (ytCategory) s.category = ytCategory;
+  }
+  if (!s.category) {
+    s.category = classify(s.domain, s.path, await getOverrides());
+  }
   if (s.eventType === 'pdf_view' && (s.category === CATEGORIES.OTHER || !s.category)) {
     s.category = CATEGORIES.STUDY;
   }
