@@ -1,5 +1,4 @@
-import { initFirebase, isFirebaseConfigured, getFirebase } from '../shared/firebase.js';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth/web-extension';
+import { initFirebase, isFirebaseConfigured, getFirebase, GoogleAuthProvider, signInWithPopup } from '../shared/firebase.js';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { categoryColor, CATEGORY_WEIGHTS } from '../shared/categories.js';
 import { DASHBOARD_URL } from '../shared/firebase-config.js';
@@ -344,6 +343,18 @@ async function main() {
       refresh();
     } catch (err) {
       el('auth-error').textContent = err.message || 'Sign-in failed';
+      el('auth-error').classList.remove('hidden');
+    }
+  });
+
+  el('google-signin-btn').addEventListener('click', async () => {
+    el('auth-error').classList.add('hidden');
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      refresh();
+    } catch (err) {
+      el('auth-error').textContent = err.message || 'Google sign-in failed';
       el('auth-error').classList.remove('hidden');
     }
   });

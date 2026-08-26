@@ -23,34 +23,72 @@
   </header>
 
   <section id="auth-view" class="hidden">
-    <p class="muted">Sign in with your LifeLensIQ Firebase account to start syncing.</p>
+    <div class="auth-header">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+      </svg>
+      <h2>Welcome to LifeLensIQ</h2>
+      <p class="muted">Sign in with your Firebase account to start syncing your data.</p>
+    </div>
+    <div class="auth-options">
+      <button type="button" id="google-signin-btn" class="google-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23c5.88 0 10.71-4.79 11.79-10.69H12V4.56z"/>
+          <path fill="#34A853" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.02-3.02C17.45 2.09 14.97 1 12 1 7.7 1 3.99 5.8 3.99 12s3.71 11 8.79 11c2.54 0 4.65-.94 6.21-2.47l-3.03-3.03c-1.24.71-2.83 1.12-4.53 1.12-3.8 0-6.84-3.07-6.84-6.85 0-.98.22-1.93.59-2.8l1.93-1.93z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+      <div class="divider"><span>or</span></div>
+    </div>
     <form id="login-form">
       <input id="email" type="email" placeholder="email@example.com" autocomplete="username" required />
       <input id="password" type="password" placeholder="password" autocomplete="current-password" required />
-      <button type="submit" id="signin-btn">Sign in</button>
+      <button type="submit" id="signin-btn">Sign in with email</button>
     </form>
     <p id="auth-error" class="error hidden"></p>
   </section>
 
   <section id="app-view" class="hidden">
-    <div class="row"><span>Signed in as</span><strong id="user-email"></strong></div>
-    <div class="row">
-      <span>Tracking</span>
-      <label class="switch">
-        <input type="checkbox" id="pause-toggle" />
-        <span class="slider"></span>
-        <span id="pause-label">On</span>
-      </label>
+    <div class="user-header">
+      <div class="user-avatar">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+      </div>
+      <div class="user-info">
+        <strong id="user-email"></strong>
+        <span class="muted" id="user-status">Syncing...</span>
+      </div>
     </div>
-    <div class="row"><span>Live session</span><strong id="live-session">—</strong></div>
-    <div class="row"><span>Today (local buffer)</span><strong id="today-active">—</strong></div>
-    <div class="row"><span>Events pending sync</span><strong id="pending-sync">—</strong></div>
-    <div class="row"><span>Last sync</span><strong id="last-sync">—</strong></div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Tracking</span>
+        <strong id="tracking-status" class="stat-value">On</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Today</span>
+        <strong id="today-active" class="stat-value">—</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Pending</span>
+        <strong id="pending-sync" class="stat-value">—</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Last sync</span>
+        <strong id="last-sync" class="stat-value">—</strong>
+      </div>
+    </div>
 
     <div class="section">
       <div class="sec-title">Focus mode</div>
       <div class="row">
-        <span>Status</span><strong id="focus-status" class="focus-off">off</strong>
+        <span>Status</span>
+        <strong id="focus-status" class="focus-off">off</strong>
       </div>
       <input id="focus-allowlist" placeholder="allowlisted domains, comma-separated" />
       <div class="btn-row">
