@@ -197,7 +197,136 @@ button.accent { background: var(--grad); color: #fff; }
 #pomo-time { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
 #pomo-phase { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
 
-.nudge-line { display: flex; justify-content: space-between; font-size: 12px; margin: 6px 0 3px; }
-.nudge-bar { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
-.nudge-bar span { display: block; height: 100%; border-radius: 3px; }
-.nudge-msg { font-size: 11px; margin-top: 6px; }
+.auth-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.auth-header svg {
+  width: 48px;
+  height: 48px;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.auth-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.auth-header .muted {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.google-btn:hover {
+  background: var(--panel);
+  border-color: var(--accent);
+}
+.google-btn svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* App view improvements */
+.user-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--grad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+.user-avatar svg {
+  width: 24px;
+  height: 24px;
+}
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+.user-info strong {
+  display: block;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-info .muted {
+  font-size: 11px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+.stat-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* Keep original .row for form elements */

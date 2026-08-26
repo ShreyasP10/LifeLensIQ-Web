@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged } from 'firebase/auth/web-extension';
+import { getAuth as getAuthWebExtension, onAuthStateChanged } from 'firebase/auth/web-extension';
+import { getAuth as getAuthRegular, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { FIREBASE_CONFIG, isConfigured } from './firebase-config.js';
 
@@ -19,7 +20,7 @@ export function initFirebase() {
   }
   if (!app) {
     app = initializeApp(FIREBASE_CONFIG);
-    auth = getAuth(app);
+    auth = getAuthWebExtension(app);
     db = getFirestore(app);
   }
   return { app, auth, db };
@@ -28,6 +29,13 @@ export function initFirebase() {
 export function getFirebase() {
   return { app, auth, db };
 }
+
+// Regular auth for popup-based sign-in (Google sign-in with popup)
+export function getRegularAuth() {
+  return getAuthRegular(app);
+}
+
+export { GoogleAuthProvider, signInWithPopup };
 
 export async function initAuth(authInstance) {
   await authInstance.authStateReady();
