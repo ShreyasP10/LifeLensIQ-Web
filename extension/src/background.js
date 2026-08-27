@@ -235,6 +235,13 @@ async function tick() {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
         const tab = tabs[0];
         if (tab && tab.url && (isHttp(tab.url) || isPdfUrl(tab.url))) {
+          const focus = await getFocus();
+          const domain = parseDomain(tab.url);
+          if (isFocusBlocked(domain, focus)) {
+            await chrome.tabs.update(tab.id, { url: chrome.runtime.getURL(`focus.html?domain=${encodeURIComponent(domain)}`) }).catch(()=>{});
+            await flushSegment();
+            return;
+          }
           let s = await getSession();
           if (!s || s.tabId !== tab.id) {
             await flushSegment();
@@ -549,6 +556,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         .map((d) => String(d).trim().toLowerCase().replace(/^www\./, ''))
         .filter(Boolean);
       await setFocus({ active: true, allowlist: list, startTs: Date.now() });
+      // Immediately block already-open tabs that are not allowlisted
+      try {
+        const tabs = await chrome.tabs.query({});
+        const focus = { active: true, allowlist: list };
+        for (const tab of tabs) {
+          if (tab.url && isHttp(tab.url)) {
+            const domain = parseDomain(tab.url);
+            if (domain && isFocusBlocked(domain, focus)) {
+              chrome.tabs.update(tab.id, { url: chrome.runtime.getURL(`focus.html?domain=${encodeURIComponent(domain)}`) }).catch(()=>{});
+            }
+          }
+        }
+        // Also flush current session if it was on a now-blocked domain
+        const s = await getSession();
+        if (s && isFocusBlocked(s.domain, focus)) await flushSegment();
+      } catch {}
       sendResponse({ ok: true });
     })();
     return true;
