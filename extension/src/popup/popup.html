@@ -52,69 +52,335 @@
   </section>
 
   <section id="app-view" class="hidden">
-    <div class="user-header">
-      <div class="user-avatar">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
-        </svg>
+    <nav class="tab-bar" id="tab-bar">
+      <button class="tab-btn active" data-tab="overview" title="Overview">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Overview</span>
+      </button>
+      <button class="tab-btn" data-tab="timeline" title="Timeline">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M8 14H4"/><path d="M16 10h4"/><path d="M8 18H4"/><path d="M16 14h4"/><path d="M10 6H6"/></svg>
+        <span>Timeline</span>
+      </button>
+      <button class="tab-btn" data-tab="trends" title="Trends">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-6 6"/></svg>
+        <span>Trends</span>
+      </button>
+      <button class="tab-btn" data-tab="heatmap" title="Activity Calendar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Calendar</span>
+      </button>
+      <button class="tab-btn" data-tab="focus" title="Focus & Pomodoro">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span>Focus</span>
+      </button>
+      <button class="tab-btn" data-tab="settings" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.41 1.41M18.36 18.36l1.41 1.41M1 12h2M21 12h2M4.22 19.78l1.41-1.41M18.36 5.64l1.41-1.41"/></svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <div class="tab-content" id="tab-content">
+      <!-- Overview Tab -->
+      <div class="tab-panel active" id="overview-tab">
+        <div class="user-header">
+          <div class="user-avatar">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <div class="user-info">
+            <strong id="user-email"></strong>
+            <span class="muted" id="user-status">Syncing...</span>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Tracking</span>
+            <strong id="tracking-status" class="stat-value">On</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Today</span>
+            <strong id="today-active" class="stat-value">—</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Pending</span>
+            <strong id="pending-sync" class="stat-value">—</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Last sync</span>
+            <strong id="last-sync" class="stat-value">—</strong>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="sec-title">Focus mode</div>
+          <div class="row">
+            <span>Status</span>
+            <strong id="focus-status" class="focus-off">off</strong>
+          </div>
+          <input id="focus-allowlist" placeholder="allowlisted domains, comma-separated" />
+          <div class="btn-row">
+            <button id="focus-toggle" class="accent">Start focus</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="sec-title">Pomodoro</div>
+          <div class="pomo-display"><span id="pomo-time">25:00</span><span id="pomo-phase" class="muted">focus</span></div>
+          <div class="btn-row">
+            <button id="pomo-toggle">Start</button>
+            <button id="pomo-reset" class="secondary">Reset</button>
+          </div>
+        </div>
+
+        <div class="section" id="weekly-nudge"></div>
+
+        <div class="cat-summary" id="cat-summary"></div>
+
+        <div class="btn-row">
+          <button id="sync-btn">Sync now</button>
+          <button id="dashboard-btn">Open dashboard</button>
+          <button id="options-btn">Options</button>
+          <button id="logout-btn" class="danger">Sign out</button>
+        </div>
       </div>
-      <div class="user-info">
-        <strong id="user-email"></strong>
-        <span class="muted" id="user-status">Syncing...</span>
+
+      <!-- Timeline Tab -->
+      <div class="tab-panel" id="timeline-tab">
+        <div class="panel">
+          <h2>Timeline</h2>
+          <div class="form-row">
+            <input type="date" id="timeline-date" />
+            <span class="muted" id="timeline-count">0 events</span>
+          </div>
+          <div class="filter-row">
+            <input class="search-input" type="search" placeholder="Search domain, title or path…" id="timeline-search" />
+            <select id="timeline-type">
+              <option value="">All types</option>
+            </select>
+            <button class="secondary" id="timeline-clear">Clear filters</button>
+          </div>
+          <div class="chip-row" id="timeline-categories"></div>
+          <div class="event-list" id="timeline-list"></div>
+        </div>
       </div>
+
+      <!-- Trends Tab -->
+      <div class="tab-panel" id="trends-tab">
+        <div class="panel">
+          <h2>Trends</h2>
+          <div class="filter-row">
+            <select id="trends-range">
+              <option value="1">1 Day</option>
+              <option value="7" selected>7 Days</option>
+              <option value="30">30 Days</option>
+              <option value="365">365 Days</option>
+            </select>
+          </div>
+          <div id="trends-chart-container">
+            <canvas id="trends-chart" width="300" height="200"></canvas>
+          </div>
+          <div class="section">
+            <h3>By Category</h3>
+            <div id="trends-pie-container">
+              <canvas id="trends-pie" width="200" height="200"></canvas>
+            </div>
+          </div>
+          <div class="section">
+            <h3>Top Domains</h3>
+            <ul id="trends-domains"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Heatmap Tab -->
+      <div class="tab-panel" id="heatmap-tab">
+        <div class="panel">
+          <h2>Activity Calendar</h2>
+          <div class="filter-row">
+            <select id="heatmap-days">
+              <option value="30">30 Days</option>
+              <option value="60">60 Days</option>
+              <option value="90" selected>90 Days</option>
+              <option value="365">365 Days</option>
+            </select>
+          </div>
+          <div id="heatmap-container"></div>
+        </div>
+      </div>
+
+      <!-- Focus Tab -->
+      <div class="tab-panel" id="focus-tab">
+        <div class="panel">
+          <h2>Focus & Pomodoro</div>
+          <div class="section">
+            <h3>Focus Mode</h3>
+            <div class="row">
+              <span>Status</span>
+              <strong id="focus-status-popup" class="focus-off">off</strong>
+            </div>
+            <input id="focus-allowlist-popup" placeholder="allowlisted domains, comma-separated" />
+            <div class="btn-row">
+              <button id="focus-toggle-popup" class="accent">Start focus</button>
+            </div>
+            <p class="muted">Add domains to allow during focus. Other sites will redirect to focus page.</p>
+          </div>
+
+          <div class="section">
+            <h3>Pomodoro</h3>
+            <div class="pomo-display"><span id="pomo-time-popup">25:00</span><span id="pomo-phase-popup" class="muted">focus · 25m</span></div>
+            <div class="btn-row">
+              <button id="pomo-toggle-popup">Start</button>
+              <button id="pomo-reset-popup" class="secondary">Reset</button>
+            </div>
+            <div class="section">
+              <h3>Sessions Today</h3>
+              <strong id="pomo-cycles-popup" class="stat-value">0</strong>
+              <p class="muted">Completed focus sessions</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div class="tab-panel" id="settings-tab">
+        <div class="panel">
+          <h2>Settings</h2>
+          <div class="section">
+            <h3>Account</h3>
+            <div class="row"><span>Email</span><strong id="settings-email">—</strong></div>
+            <div class="row"><span>UID</span><strong id="settings-uid" style="font-size: 11px;">—</strong></div>
+            <div class="btn-row">
+              <button id="signout-btn" class="danger">Sign out</button>
+            </div>
+          </div>
+          <div class="section">
+            <h3>Category Overrides</h3>
+            <p class="muted">Override automatic categorization for specific domains.</p>
+            <div class="form-row">
+              <input id="override-domain" placeholder="domain, e.g. youtube.com" />
+              <select id="override-category"></select>
+              <button id="add-override-btn">Add</button>
+            </div>
+            <ul id="override-list"></ul>
+          </div>
+          <div class="section">
+            <h3>Daily Focus Target</h3>
+            <p class="muted">Your streak counts a day only when productive-weighted time reaches this target.</p>
+            <div class="form-row">
+              <input type="number" id="focus-target" min="0" step="15" style="width: 100px;" />
+              <span class="muted">minutes / day</span>
+              <button id="save-target-btn">Save target</button>
+            </div>
+            <p class="muted" id="target-status"></p>
+          </div>
+          <div class="section">
+            <h3>Sync Health</h3>
+            <div id="sync-health"></div>
+            <button id="sync-now-btn" class="accent">Force Sync Now</button>
+          </div>
+          <div class="section" style="border-color: var(--danger);">
+            <h3 style="color: var(--danger);">Danger Zone</h3>
+            <p class="muted">Deletes all your data from Firestore. This cannot be undone.</p>
+            <button id="delete-all-btn" class="danger">Delete All My Data</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Tab -->
+      <div class="tab-panel" id="export-tab">
+        <div class="panel">
+          <h2>Export Data</h2>
+          <div class="form-row">
+            <input type="date" id="export-from" />
+            <input type="date" id="export-to" />
+          </div>
+          <div class="filter-row">
+            <select id="export-format">
+              <option value="csv">CSV</option>
+              <option value="json">JSON</option>
+              <option value="stats">Stats JSON</option>
+            </select>
+            <select id="export-device">
+              <option value="all">All devices</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button id="export-btn" class="accent">Export</button>
+          </button>
+          <div id="export-progress" class="muted hidden"></div>
+          <pre id="export-result" class="hidden" style="max-height: 200px; overflow: auto; background: var(--panel-2); padding: 10px; border-radius: 6px;"></pre>
+        </div>
+      </div>
+
+      <!-- Manual Entry Tab -->
+      <div class="tab-panel" id="manual-tab">
+        <div class="panel">
+          <h2>Manual Entry</h2>
+          <p class="muted">Log productive time manually (e.g., offline study, reading).</p>
+          <form id="manual-form">
+            <div class="form-row">
+              <input type="date" id="manual-date" required />
+            </div>
+            <div class="form-row">
+              <input type="time" id="manual-start" required />
+              <input type="time" id="manual-end" required />
+            </div>
+            <div class="form-row">
+              <input type="text" id="manual-title" placeholder="Title (optional)" />
+            </div>
+            <div class="form-row">
+              <input type="text" id="manual-domain" placeholder="Domain (e.g. coursera.org)" required />
+            </div>
+            <div class="form-row">
+              <select id="manual-category">
+                <option value="Study">Study</option>
+                <option value="Development">Development</option>
+                <option value="Productivity">Productivity</option>
+                <option value="DSA">DSA</option>
+                <option value="Reading">Study</option>
+                <option value="Writing">Development</option>
+              </select>
+            </div>
+            <div class="btn-row">
+              <button type="submit" class="accent">Add Entry</button>
+            </div>
+          </form>
+          <div class="section">
+            <h3>Recent Manual Entries</h3>
+            <ul id="manual-list"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Anomalies Tab -->
+      <div class="tab-panel" id="anomalies-tab">
+        <div class="panel">
+          <h2>Anomalies Detected</h2>
+          <p class="muted">Unusual patterns in your usage (late-night activity, long distraction runs, etc.)</p>
+          <ul id="anomalies-list"></ul>
+        </div>
+      </div>
+
+      <!-- Leaderboard Tab -->
+      <div class="tab-panel" id="leaderboard-tab">
+        <div class="panel">
+          <h2>Leaderboard</h2>
+          <p class="muted">Compare your productivity with others (anonymized).</p>
+          <div class="filter-row">
+            <select id="leaderboard-period">
+              <option value="7">Last 7 Days</option>
+              <option value="30" selected>Last 30 Days</option>
+            </select>
+          </div>
+          <ul id="leaderboard-list"></ul>
+        </div>
+      </div>
+
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card">
-        <span class="stat-label">Tracking</span>
-        <strong id="tracking-status" class="stat-value">On</strong>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Today</span>
-        <strong id="today-active" class="stat-value">—</strong>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Pending</span>
-        <strong id="pending-sync" class="stat-value">—</strong>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Last sync</span>
-        <strong id="last-sync" class="stat-value">—</strong>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="sec-title">Focus mode</div>
-      <div class="row">
-        <span>Status</span>
-        <strong id="focus-status" class="focus-off">off</strong>
-      </div>
-      <input id="focus-allowlist" placeholder="allowlisted domains, comma-separated" />
-      <div class="btn-row">
-        <button id="focus-toggle" class="accent">Start focus</button>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="sec-title">Pomodoro</div>
-      <div class="pomo-display"><span id="pomo-time">25:00</span><span id="pomo-phase" class="muted">focus</span></div>
-      <div class="btn-row">
-        <button id="pomo-toggle">Start</button>
-        <button id="pomo-reset" class="secondary">Reset</button>
-      </div>
-    </div>
-
-    <div class="section" id="weekly-nudge"></div>
-
-    <div class="cat-summary" id="cat-summary"></div>
-
-    <div class="btn-row">
-      <button id="sync-btn">Sync now</button>
-      <button id="dashboard-btn">Open dashboard</button>
-      <button id="options-btn">Options</button>
-      <button id="logout-btn" class="danger">Sign out</button>
-    </div>
   </section>
 
   <footer class="muted">Passive tracking is on. Segment min: 5s · sync: every 1 min.</footer>
