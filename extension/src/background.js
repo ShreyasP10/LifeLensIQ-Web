@@ -380,12 +380,6 @@ async function syncBuffer() {
   }
 }
 
-function broadcastSyncStatus() {
-  chrome.runtime
-    .sendMessage({ type: 'syncStatus', pending: 0 })
-    .catch(() => {});
-}
-
 /* ---------------- init & listeners ---------------- */
 
 let initPromise = null;
@@ -555,7 +549,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const list = (msg.allowlist || [])
         .map((d) => String(d).trim().toLowerCase().replace(/^www\./, ''))
         .filter(Boolean);
-      await setFocus({ active: true, allowlist: list, startTs: Date.now() });
+      const cur = await getFocus();
+      const startTs = cur.active ? cur.startTs : Date.now();
+      await setFocus({ active: true, allowlist: list, startTs });
       // Immediately block already-open tabs that are not allowlisted
       try {
         const tabs = await chrome.tabs.query({});

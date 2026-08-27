@@ -150,14 +150,15 @@ export function focusStreak(events, now = Date.now()) {
 
 export function deepFocusSessions(events, minMinutes = 30, gapMinutes = 5) {
   const sorted = [...(events || [])]
-    .filter((ev) => (Number(ev.durationSeconds) || 0) > 0 && ev.domain)
+    .filter((ev) => (Number(ev.durationSeconds) || 0) > 0 && ev.domain && isProductiveCategory(ev.category))
     .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
   const sessions = [];
   let cur = null;
   for (const ev of sorted) {
     const ts = Number(ev.ts) || 0;
-    const end = Number(ev.endTs) || ts;
-    if (cur && ev.domain === cur.domain && ts - cur.end <= gapMinutes * 60000) {
+    const end = Number(ev.endTs) || ts + (Number(ev.durationSeconds) || 0) * 1000;
+    const sameDay = cur ? dayKey(ts) === dayKey(cur.start) : true;
+    if (cur && sameDay && ev.domain === cur.domain && ts - cur.end <= gapMinutes * 60000) {
       cur.seconds += Number(ev.durationSeconds) || 0;
       cur.events += 1;
       cur.end = Math.max(cur.end, end);
