@@ -41,7 +41,8 @@ export const SHORT_URL_RE = /\/shorts\/|\/reel\/|\/reels\//i;
 const STUDY_KEYWORDS = [
   'tutorial', 'lecture', 'course', 'learn', 'lesson', 'education',
   'explained', 'guide', 'how to', 'crash course', 'full course',
-  'beginner', 'advanced', 'introduction', 'basics', 'fundamentals'
+  'beginner', 'advanced', 'introduction', 'basics', 'fundamentals',
+  'masterclass', 'study', 'academy'
 ];
 
 const DEV_KEYWORDS = [
@@ -49,19 +50,22 @@ const DEV_KEYWORDS = [
   'javascript', 'python', 'java', 'c++', 'c#', 'html', 'css',
   'react', 'angular', 'vue', 'node', 'sql', 'database',
   'data structure', 'algorithm', 'dsa', 'leetcode', 'machine learning',
-  'ai', 'artificial intelligence', 'deep learning'
+  'ai', 'artificial intelligence', 'deep learning', 'development',
+  'web dev', 'app dev', 'frontend', 'backend', 'fullstack', 'system design'
 ];
 
 const DSA_KEYWORDS = [
   'data structure', 'algorithm', 'leetcode', 'dsa',
   'binary tree', 'linked list', 'dynamic programming',
-  'graph', 'sorting', 'searching', 'recursion', 'stack', 'queue'
+  'graph', 'sorting', 'searching', 'recursion', 'stack', 'queue',
+  'competitive programming', 'neetcode', 'striver'
 ];
 
 const PRODUCTIVITY_KEYWORDS = [
   'productivity', 'study with me', 'focus', 'time management',
   'notion', 'obsidian', 'note taking', 'exam prep',
-  'upsc', 'gate', 'neet', 'jee', 'cat', 'gre', 'toefl'
+  'upsc', 'gate', 'neet', 'jee', 'cat', 'gre', 'toefl',
+  'pomodoro', 'workflow', 'planning', 'habits'
 ];
 
 export function classifyYouTubeTitle(title) {

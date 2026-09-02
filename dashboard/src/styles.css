@@ -90,6 +90,7 @@ html[data-theme='light'] {
 
 html {
   color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 html[data-theme='light'] {
@@ -103,10 +104,11 @@ body {
     var(--bg);
   background-attachment: fixed;
   color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 html[data-theme='light'] body {
@@ -138,6 +140,20 @@ html[data-theme='light'] body::after {
   from { transform: translate3d(-1.5%, 1.5%, 0) scale(1); }
   to { transform: translate3d(1.5%, -1.5%, 0) scale(1.05); }
 }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card, .panel, .event-item {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.card:nth-child(2) { animation-delay: 0.05s; }
+.card:nth-child(3) { animation-delay: 0.1s; }
+.card:nth-child(4) { animation-delay: 0.15s; }
+.card:nth-child(5) { animation-delay: 0.2s; }
 
 .app {
   position: relative;
@@ -199,12 +215,12 @@ button {
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, filter 0.15s ease;
 }
 button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  filter: brightness(1.07);
-  box-shadow: 0 7px 22px rgba(56, 189, 248, 0.38);
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+  box-shadow: 0 8px 25px rgba(56, 189, 248, 0.45);
 }
 button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.98);
   box-shadow: 0 2px 8px rgba(56, 189, 248, 0.2), inset 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 button:disabled {
