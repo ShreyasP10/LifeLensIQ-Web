@@ -16,7 +16,7 @@ const MIN_SEGMENT_MS = 5000;
 const MERGE_GAP_MS = 120000;
 const IDLE_THRESHOLD_SECONDS = 120;
 const TICK_MINUTES = 1;
-const MAX_BUFFER = 20000;
+const MAX_BUFFER = 1000;
 const BATCH_SIZE = 450;
 const MAX_SESSION_MS = 4 * 60 * 60 * 1000; // 4h hard cap
 const WRITING_DOMAINS = ['docs.google.com', 'office.com', 'live.com', 'onedrive.com'];
@@ -149,10 +149,11 @@ async function _flushSegment() {
   const s = await getSession();
   if (!s) return;
   const now = Date.now();
-  const durationMs = now - s.startTs;
+  const endTs = Math.min(now, (s.lastTs || s.startTs) + 120000);
+  const durationMs = endTs - s.startTs;
   await clearSession();
   if (durationMs < MIN_SEGMENT_MS) return;
-  s.lastTs = now;
+  s.lastTs = endTs;
   // Use YouTube title classifier for YouTube URLs to properly categorize tutorials/lectures
   if (s.domain === 'youtube.com' && s.title) {
     const ytCategory = classifyYouTubeTitle(s.title);
@@ -235,6 +236,13 @@ async function tick() {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
         const tab = tabs[0];
         if (tab && tab.url && (isHttp(tab.url) || isPdfUrl(tab.url))) {
+          const focus = await getFocus();
+          const domain = parseDomain(tab.url);
+          if (isFocusBlocked(domain, focus)) {
+            await chrome.tabs.update(tab.id, { url: chrome.runtime.getURL(`focus.html?domain=${encodeURIComponent(domain)}`) }).catch(()=>{});
+            await flushSegment();
+            return;
+          }
           let s = await getSession();
           if (!s || s.tabId !== tab.id) {
             await flushSegment();
@@ -248,17 +256,26 @@ async function tick() {
               if (isPdfUrl(tab.url) && s.eventType === 'tab_active') {
                 s.eventType = 'pdf_view';
               }
-              if (SHORT_URL_RE.test(tab.url) && s.eventType !== 'short_video') {
-                s.eventType = 'short_video';
-                s.category = CATEGORIES.SHORT_VIDEO;
-                if (s.shorts.lastUrl !== tab.url) {
+              if (SHORT_URL_RE.test(tab.url)) {
+                if (s.eventType !== 'short_video') {
+                  await flushSegment();
+                  s = await startSegmentForTab(tab.id);
+                  if (s) {
+                    s.eventType = 'short_video';
+                    s.category = CATEGORIES.SHORT_VIDEO;
+                    s.shorts.views = 1;
+                    s.shorts.lastUrl = tab.url;
+                  }
+                } else if (s.shorts.lastUrl !== tab.url) {
                   s.shorts.views += 1;
                   s.shorts.lastUrl = tab.url;
                 }
               }
-              s.title = tab.title || s.title;
-              s.lastTs = Date.now();
-              await setSession(s);
+              if (s) {
+                s.title = tab.title || s.title;
+                s.lastTs = Date.now();
+                await setSession(s);
+              }
             }
           }
         }
@@ -329,7 +346,8 @@ async function syncBuffer() {
     return;
   }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    lastSyncAttempt = Date.now(); // Set backoff even when offline
+    syncFailures = Math.max(1, syncFailures);
+    lastSyncAttempt = Date.now();
     return;
   }
 
@@ -371,12 +389,6 @@ async function syncBuffer() {
     await setLastSyncTs();
     broadcastSyncStatus(remaining.length); // Send actual pending count
   }
-}
-
-function broadcastSyncStatus() {
-  chrome.runtime
-    .sendMessage({ type: 'syncStatus', pending: 0 })
-    .catch(() => {});
 }
 
 /* ---------------- init & listeners ---------------- */
@@ -449,7 +461,7 @@ chrome.runtime.onInstalled.addListener(() => {
   init();
   chrome.storage.local.get(META_KEY).then((res) => {
     if (!res[META_KEY]) {
-      chrome.storage.local.set({ [META_KEY]: { installedAt: Date.now(), version: '0.2.0' } });
+      chrome.storage.local.set({ [META_KEY]: { installedAt: Date.now(), version: chrome.runtime.getManifest().version } });
     }
   });
 });
@@ -487,15 +499,35 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-chrome.idle.onStateChanged.addListener((state) => {
+chrome.idle.onStateChanged.addListener(async (state) => {
   if (state === 'idle') {
     flushSegment();
+  } else if (state === 'active') {
+    if (await getPaused()) return;
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    if (tabs.length > 0) {
+      const s = await getSession();
+      if (!s || s.tabId !== tabs[0].id) {
+        await flushSegment();
+        startSegmentForTab(tabs[0].id).catch(() => {});
+      }
+    }
   }
 });
 
-chrome.windows.onFocusChanged.addListener((windowId) => {
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     flushSegment().catch(() => {});
+  } else {
+    if (await getPaused()) return;
+    const tabs = await chrome.tabs.query({ active: true, windowId }).catch(() => []);
+    if (tabs.length > 0) {
+      const s = await getSession();
+      if (!s || s.tabId !== tabs[0].id) {
+        await flushSegment();
+        startSegmentForTab(tabs[0].id).catch(() => {});
+      }
+    }
   }
 });
 
@@ -548,7 +580,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const list = (msg.allowlist || [])
         .map((d) => String(d).trim().toLowerCase().replace(/^www\./, ''))
         .filter(Boolean);
-      await setFocus({ active: true, allowlist: list, startTs: Date.now() });
+      const cur = await getFocus();
+      const startTs = cur.active ? cur.startTs : Date.now();
+      await setFocus({ active: true, allowlist: list, startTs });
+      // Immediately block already-open tabs that are not allowlisted
+      try {
+        const tabs = await chrome.tabs.query({});
+        const focus = { active: true, allowlist: list };
+        for (const tab of tabs) {
+          if (tab.url && isHttp(tab.url)) {
+            const domain = parseDomain(tab.url);
+            if (domain && isFocusBlocked(domain, focus)) {
+              chrome.tabs.update(tab.id, { url: chrome.runtime.getURL(`focus.html?domain=${encodeURIComponent(domain)}`) }).catch(()=>{});
+            }
+          }
+        }
+        // Also flush current session if it was on a now-blocked domain
+        const s = await getSession();
+        if (s && isFocusBlocked(s.domain, focus)) await flushSegment();
+      } catch {}
       sendResponse({ ok: true });
     })();
     return true;
@@ -584,7 +634,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (s.category !== category) {
           // Flush current session and start new one with new category
           await flushSegment();
-          const s2 = await startSegmentForTab(msg.tabId);
+          const s2 = await startSegmentForTab(tabId);
           if (s2) {
             // Force category to the classified one
             s2.category = category;

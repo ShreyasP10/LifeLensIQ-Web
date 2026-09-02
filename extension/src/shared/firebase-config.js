@@ -7,7 +7,7 @@ export const FIREBASE_CONFIG = {
   appId: '1:1056805592677:web:48b2498a0373de42daf08c',
 };
 
-export const DASHBOARD_URL = 'http://localhost:5173';
+export const DASHBOARD_URL = 'https://life-lens-iq-web.vercel.app/';
 
 export function isConfigured() {
   return !String(FIREBASE_CONFIG.apiKey).startsWith('PASTE_');

@@ -25,6 +25,7 @@ export function buildEvent(session) {
     device: DEVICE_EXTENSION,
     deviceId: DEVICE_ID_WEB,
     schemaVersion: SCHEMA_VERSION,
+    tabId: session.tabId,
   };
 }
 

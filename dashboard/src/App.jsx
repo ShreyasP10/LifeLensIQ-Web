@@ -82,7 +82,7 @@ function Dashboard({ user }) {
     [events]
   );
   const [dismissed, setDismissed] = useState({});
-  const activeAlerts = anomalies.filter((a) => !dismissed[a.title]);
+  const activeAlerts = anomalies.filter((a) => !dismissed[`${a.title}-${a.detail}`]);
 
   const eventDevice = (ev) =>
     ev.deviceId ||
@@ -190,15 +190,18 @@ function Dashboard({ user }) {
                   </p>
                 </div>
               )}
-              {activeAlerts.map((a) => (
-                <div key={a.title} className={`insight ${a.kind}`}>
+              {activeAlerts.map((a, i) => {
+                const key = `${a.title}-${a.detail}`;
+                return (
+                <div key={key} className={`insight ${a.kind}`}>
                   <div className="insight-title">{a.title}</div>
                   <div className="insight-detail">{a.detail}</div>
-                  <button className="mini" onClick={() => setDismissed({ ...dismissed, [a.title]: true })}>
+                  <button className="mini" onClick={() => setDismissed({ ...dismissed, [key]: true })}>
                     Dismiss
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

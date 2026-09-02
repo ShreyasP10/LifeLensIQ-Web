@@ -16,8 +16,13 @@ el('blocked-domain').textContent = domain || 'this site';
 
 async function refreshFocus() {
   const res = await chrome.runtime.sendMessage({ type: 'getFocusState' }).catch(() => null);
+  const heading = document.querySelector('h1');
   if (!res || !res.active) {
     el('stop-btn').textContent = 'Focus is off — back to browsing';
+    if (heading) heading.textContent = 'Focus mode is off';
+  } else {
+    el('stop-btn').textContent = 'Stop focus mode';
+    if (heading) heading.textContent = 'Focus mode is on';
   }
   el('focus-start').textContent = res && res.startTs ? new Date(res.startTs).toLocaleTimeString() : '—';
   el('focus-elapsed').textContent = fmtElapsed(res ? res.startTs : 0);
@@ -33,15 +38,14 @@ async function allowDomain() {
     if (!list.includes(target)) list.push(target);
     await chrome.runtime.sendMessage({ type: 'startFocus', allowlist: list });
     el('msg').classList.remove('hidden');
-    el('msg').textContent = `${target} added to allowlist. You can close this tab and continue.`;
-    if (input) {
-      chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-        const tab = tabs[0];
-        if (tab && tab.url) chrome.tabs.update(tab.id, { url: `https://${target}` }).catch(() => {
-          el('msg').textContent = 'Could not navigate to the domain. Check your connection.';
-        });
+    el('msg').textContent = `${target} added to allowlist. Redirecting...`;
+    // Navigate to the allowed domain (original blocked or input)
+    chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      const tab = tabs[0];
+      if (tab && tab.url) chrome.tabs.update(tab.id, { url: `https://${target}` }).catch(() => {
+        el('msg').textContent = 'Could not navigate to the domain. Check your connection.';
       });
-    }
+    });
   } catch (err) {
     el('msg').classList.remove('hidden');
     el('msg').textContent = 'Failed to update allowlist: ' + err.message;
