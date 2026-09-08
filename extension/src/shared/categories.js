@@ -39,33 +39,37 @@ export const CATEGORY_WEIGHTS = {
 export const SHORT_URL_RE = /\/shorts\/|\/reel\/|\/reels\//i;
 
 const STUDY_KEYWORDS = [
-  'tutorial', 'lecture', 'course', 'learn', 'lesson', 'education',
-  'explained', 'guide', 'how to', 'crash course', 'full course',
-  'beginner', 'advanced', 'introduction', 'basics', 'fundamentals',
-  'masterclass', 'study', 'academy'
+  'tutorial', 'lecture', 'course', 'learn', 'lesson', 'education', 'educational',
+  'explained', 'guide', 'how to', 'crash course', 'full course', 'bootcamp', 'workshop',
+  'seminar', 'training', 'coaching', 'masterclass', 'study', 'academy', 'school', 'college', 'university',
+  'beginner', 'advanced', 'introduction', 'basics', 'fundamentals', 'complete guide', 'step by step',
+  'for beginners', 'for advanced', 'deep dive', 'hands on', 'practical', 'example', 'demo',
+  'syllabus', 'curriculum', 'certification', 'degree', 'diploma', 'exam', 'preparation', 'prep'
 ];
 
 const DEV_KEYWORDS = [
-  'programming', 'code', 'coding', 'developer', 'software',
-  'javascript', 'python', 'java', 'c++', 'c#', 'html', 'css',
-  'react', 'angular', 'vue', 'node', 'sql', 'database',
-  'data structure', 'algorithm', 'dsa', 'leetcode', 'machine learning',
-  'ai', 'artificial intelligence', 'deep learning', 'development',
-  'web dev', 'app dev', 'frontend', 'backend', 'fullstack', 'system design'
+  'programming', 'coding', 'code', 'developer', 'software', 'software engineering',
+  'web development', 'app development', 'web dev', 'app dev', 'frontend', 'backend', 'fullstack', 'full stack',
+  'system design', 'architecture', 'api', 'framework', 'library', 'open source', 'github', 'git',
+  'javascript', 'typescript', 'python', 'java', 'c++', 'c#', 'html', 'css', 'react', 'angular', 'vue', 'svelte',
+  'node', 'nodejs', 'express', 'nextjs', 'nestjs', 'django', 'flask', 'spring', 'laravel', 'php', 'ruby', 'golang', 'go lang',
+  'rust', 'kotlin', 'swift', 'flutter', 'dart', 'sql', 'database', 'mongodb', 'mysql', 'postgresql', 'firebase',
+  'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'cloud', 'devops', 'ci/cd', 'machine learning', 'ml',
+  'ai', 'artificial intelligence', 'deep learning', 'data science', 'computer science', 'cs', 'tech'
 ];
 
 const DSA_KEYWORDS = [
-  'data structure', 'algorithm', 'leetcode', 'dsa',
-  'binary tree', 'linked list', 'dynamic programming',
-  'graph', 'sorting', 'searching', 'recursion', 'stack', 'queue',
-  'competitive programming', 'neetcode', 'striver'
+  'data structure', 'dsa', 'algorithm', 'algorithms', 'leetcode', 'codeforces', 'geeksforgeeks',
+  'binary tree', 'binary search', 'linked list', 'array', 'hashmap', 'hash table', 'heap', 'trie', 'bst',
+  'graph', 'sorting', 'searching', 'recursion', 'stack', 'queue', 'dynamic programming', 'dp', 'backtracking',
+  'greedy', 'two pointer', 'sliding window', 'bit manipulation', 'competitive programming', 'cp', 'neetcode', 'striver',
+  'takeuforward', 'aditya verma', 'love babbar', 'kunal kushwaha'
 ];
 
 const PRODUCTIVITY_KEYWORDS = [
-  'productivity', 'study with me', 'focus', 'time management',
-  'notion', 'obsidian', 'note taking', 'exam prep',
-  'upsc', 'gate', 'neet', 'jee', 'cat', 'gre', 'toefl',
-  'pomodoro', 'workflow', 'planning', 'habits'
+  'productivity', 'study with me', 'focus', 'time management', 'pomodoro', 'workflow', 'planning', 'habits', 'routine',
+  'notion', 'obsidian', 'note taking', 'second brain', 'exam prep', 'upsc', 'gate', 'neet', 'jee', 'cat', 'gre', 'toefl', 'ielts',
+  'motivation', 'self improvement', 'personal development', 'life hack', 'organization'
 ];
 
 export function classifyYouTubeTitle(title) {
@@ -77,14 +81,14 @@ export function classifyYouTubeTitle(title) {
   // DSA specific (highest priority)
   if (DSA_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.DSA;
   
-  // Study (generic educational) - check before Development
+  // Development (programming) - check before generic Study
+  if (DEV_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.DEVELOPMENT;
+  
+  // Study (generic educational)
   if (STUDY_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.STUDY;
   
   // Productivity
   if (PRODUCTIVITY_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.PRODUCTIVITY;
-  
-  // Development (programming but not explicitly tutorial/lecture)
-  if (DEV_KEYWORDS.some(k => t.includes(k))) return CATEGORIES.DEVELOPMENT;
   
   // Default: entertainment
   return CATEGORIES.ENTERTAINMENT;
