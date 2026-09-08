@@ -6,3 +6,6 @@ dist/
 .netlify/
 firebase-debug.log
 serviceAccountKey.json
+local-data/
+local-admin/
+admin-out/
