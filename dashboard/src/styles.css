@@ -143,17 +143,42 @@ html[data-theme='light'] body::after {
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
-.card, .panel, .event-item {
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.card:nth-child(2) { animation-delay: 0.05s; }
-.card:nth-child(3) { animation-delay: 0.1s; }
-.card:nth-child(4) { animation-delay: 0.15s; }
-.card:nth-child(5) { animation-delay: 0.2s; }
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.4); }
+  50% { box-shadow: 0 0 16px rgba(56, 189, 248, 0.7); }
+}
+
+.card, .panel {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.event-item {
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.card:nth-child(2) { animation-delay: 0.06s; }
+.card:nth-child(3) { animation-delay: 0.12s; }
+.card:nth-child(4) { animation-delay: 0.18s; }
+.card:nth-child(5) { animation-delay: 0.24s; }
+.panel:nth-child(2) { animation-delay: 0.08s; }
+.panel:nth-child(3) { animation-delay: 0.16s; }
 
 .app {
   position: relative;
@@ -201,10 +226,12 @@ code {
 b { font-weight: 700; }
 
 button {
+  position: relative;
+  overflow: hidden;
   background: var(--grad-solid);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 18px;
   font-size: 13.5px;
   font-weight: 600;
@@ -212,15 +239,26 @@ button {
   cursor: pointer;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   box-shadow: 0 4px 14px rgba(56, 189, 248, 0.28);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, filter 0.15s ease;
+  transition: transform 0.18s cubic-bezier(0.16,1,0.3,1), box-shadow 0.18s ease, filter 0.18s ease;
+}
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+button:hover:not(:disabled)::before {
+  transform: translateX(100%);
 }
 button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.1);
-  box-shadow: 0 8px 25px rgba(56, 189, 248, 0.45);
+  transform: translateY(-2px) scale(1.02);
+  filter: brightness(1.08);
+  box-shadow: 0 10px 28px rgba(56, 189, 248, 0.45);
 }
 button:active:not(:disabled) {
-  transform: translateY(1px) scale(0.98);
+  transform: translateY(1px) scale(0.97);
   box-shadow: 0 2px 8px rgba(56, 189, 248, 0.2), inset 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 button:disabled {
@@ -482,20 +520,35 @@ html[data-theme='light'] .banner.error {
   position: relative;
   background: linear-gradient(180deg, var(--card-grad-a), var(--card-grad-b));
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 18px;
   overflow: hidden;
   backdrop-filter: blur(18px) saturate(1.25);
   -webkit-backdrop-filter: blur(18px) saturate(1.25);
   box-shadow: var(--shadow);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease, box-shadow 0.22s ease;
 }
 .card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px) scale(1.01);
   border-color: var(--border-strong);
   box-shadow:
-    0 18px 42px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+    0 20px 48px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.04) 50%, transparent 70%);
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.card:hover::after {
+  opacity: 1;
+  animation: shimmer 1.2s ease;
 }
 .card h3 {
   font-size: 12.5px;
@@ -525,13 +578,18 @@ html[data-theme='light'] .banner.error {
   position: relative;
   background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 20px;
+  border-radius: 20px;
+  padding: 22px;
   margin-bottom: 20px;
   overflow: hidden;
   backdrop-filter: blur(20px) saturate(1.3);
   -webkit-backdrop-filter: blur(20px) saturate(1.3);
   box-shadow: var(--shadow);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
+}
+.panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 .panel h2 {
   font-size: 16px;
