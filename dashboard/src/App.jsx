@@ -24,6 +24,7 @@ import ExportPanel from './components/ExportPanel.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import ManualEntry from './components/ManualEntry.jsx';
+import AdminLocal from './components/AdminLocal.jsx';
 
 const TABS = [
   ['overview', 'Overview'],
@@ -268,6 +269,7 @@ function Dashboard({ user }) {
       )}
 
       <main>
+        <AdminLocal currentUser={user} />
         <div className="device-filter">
           {deviceOptions.map((id) => (
             <button
