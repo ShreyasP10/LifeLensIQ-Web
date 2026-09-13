@@ -9,7 +9,7 @@ import Heatmap from './Heatmap.jsx';
 import { normalizeEvent } from '../lib/events.js';
 
 const ADMIN_UID = 'YsM8jSagROdTa1inGzKJNweljUG3';
-const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isLocal = import.meta.env.DEV || ['localhost','127.0.0.1','::1'].includes(window.location.hostname) || /^192\.168\./.test(window.location.hostname) || /^10\./.test(window.location.hostname) || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(window.location.hostname);
 
 export default function AdminLocal({ currentUser }) {
   const [users, setUsers] = useState([]);
@@ -64,8 +64,8 @@ export default function AdminLocal({ currentUser }) {
 
   return (
     <div className="panel" style={{borderColor: 'var(--accent)', marginBottom: 16}}>
-      <h2>🔒 Local Admin — All Users (localhost only)</h2>
-      <p className="muted">This panel only shows on <code>localhost</code> for admin UID. Never deployed to Vercel.</p>
+      <h2>🔒 Local Admin — All Users (dev only)</h2>
+      <p className="muted">This panel only shows on <code>localhost</code> / server IP (<code>192.168.*</code>, <code>10.*</code>) for admin UID. Never on Vercel production.</p>
       <div className="form-row">
         <select value={selectedUid||''} onChange={e=> setSelectedUid(e.target.value)} style={{flex:1}}>
           <option value="">— Select user to view full dashboard —</option>
