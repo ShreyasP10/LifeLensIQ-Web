@@ -60,9 +60,14 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function startOf3amDay(d = new Date()) {
+  const x = new Date(d);
+  if (x.getHours() < 3) x.setDate(x.getDate() - 1);
+  x.setHours(3, 0, 0, 0);
+  return x;
+}
 async function getTodayActiveSeconds() {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = startOf3amDay(new Date());
   const startTs = startOfDay.getTime();
   const now = Date.now();
   let seconds = 0;
@@ -139,8 +144,8 @@ async function refresh() {
     else { el('live-session').textContent = '—'; el('live-session').title = ''; }
   }
   const { lifelensiq_buffer: buffer = [] } = await chrome.storage.local.get('lifelensiq_buffer');
-  // local today summary for categories
-  const startOfDay = new Date(); startOfDay.setHours(0,0,0,0); const startTs = startOfDay.getTime(); const now = Date.now();
+  // local today summary for categories (03:00 reset)
+  const startOfDay = startOf3amDay(new Date()); const startTs = startOfDay.getTime(); const now = Date.now();
   const byCat = {}; for (const ev of buffer) if (ev.ts >= startTs && ev.ts <= now) { const c = ev.category || 'Other'; byCat[c] = (byCat[c]||0)+(ev.durationSeconds||0); }
   const todayActiveSeconds = await getTodayActiveSeconds();
   if (el('today-active')) el('today-active').textContent = `${Math.round(todayActiveSeconds/60)} min`;
@@ -242,7 +247,7 @@ async function renderWeeklyNudge() {
   const box = el('weekly-nudge'); if (!box) return;
   const fb = getFirebase();
   if (!fb.db || !fb.auth.currentUser) return;
-  const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-(start.getDay()||7)+1);
+  const start = startOf3amDay(new Date()); start.setDate(start.getDate()-(start.getDay()||7)+1);
   try {
     const snap = await getDocs(query(collection(fb.db,'users',fb.auth.currentUser.uid,'events'), where('ts','>=',start.getTime())));
     let study=0, shorts=0;
@@ -323,7 +328,7 @@ async function renderHeatmap() {
   const days = parseInt(el('heatmap-days')?.value||'90');
   const evs = await fetchEvents(2000);
   const map = {}; evs.forEach(ev=>{ const k=new Date(ev.ts).toISOString().split('T')[0]; map[k]=(map[k]||0)+(ev.durationSeconds||0); });
-  const today = new Date(); today.setHours(0,0,0,0);
+  const today = startOf3amDay(new Date());
   let html = '<div class="heat-grid" style="display:grid;grid-template-columns:repeat(7,14px);gap:3px;">';
   const weekdays = ['S','M','T','W','T','F','S'];
   weekdays.forEach(d=> html+=`<div style="font-size:9px;color:var(--muted);text-align:center;">${d}</div>`);
