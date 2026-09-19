@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { dayKeyLocal, eventsOnDay, formatDuration, formatTime, pad, deepFocusSessions } from '../lib/stats.js';
+import { dayKeyLocal, eventsOnDay, eventsOnDayAt3am, firstLastSeenForDay, formatDuration, formatTime, pad, deepFocusSessions } from '../lib/stats.js';
 import { categoryColor, CATEGORY_KEYS } from '../lib/categories.js';
 import SiteDrilldown from './SiteDrilldown.jsx';
 import WakeSleepCard from './WakeSleepCard.jsx';
@@ -15,7 +15,8 @@ export default function Timeline({ events, onDelete }) {
   const [query, setQuery] = useState('');
   const [drilldown, setDrilldown] = useState('');
 
-  const dayEvents = useMemo(() => eventsOnDay(events, date), [events, date]);
+  const dayEvents = useMemo(() => eventsOnDayAt3am(events, date), [events, date]);
+  const dayFirstLast = useMemo(() => firstLastSeenForDay(events, date), [events, date]);
   const deepIds = useMemo(() => {
     const sessions = deepFocusSessions(dayEvents);
     const set = new Set();
@@ -112,6 +113,15 @@ export default function Timeline({ events, onDelete }) {
             <span className="chip-count">{counts[c] || 0}</span>
           </button>
         ))}
+      </div>
+
+      <div className="panel" style={{padding:10, marginBottom:12, background:'var(--panel-2)'}}>
+        <div style={{display:'flex', gap:16, flexWrap:'wrap', fontSize:13}}>
+          <span><b>First opened:</b> {dayFirstLast.firstSeenFormatted}</span>
+          <span><b>Last seen:</b> {dayFirstLast.lastSeenFormatted}</span>
+          <span><b>Sessions:</b> {dayFirstLast.count} · {dayFirstLast.durationFormatted}</span>
+          <span className="muted">Day 03:00 → 03:00</span>
+        </div>
       </div>
 
       <WakeSleepCard events={events} day={date} />

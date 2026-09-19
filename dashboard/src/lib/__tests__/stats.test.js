@@ -175,7 +175,7 @@ describe('focusStreak', () => {
   const now = new Date(2026, 7, 11, 12).getTime();
   const dayStart = (offset) => {
     const d = new Date(now);
-    d.setHours(0, 0, 0, 0);
+    d.setHours(4, 0, 0, 0);
     d.setDate(d.getDate() - offset);
     return d.getTime();
   };

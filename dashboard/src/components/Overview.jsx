@@ -30,6 +30,12 @@ import {
   formatTime,
   focusSessions,
   weekdayAverages,
+  dayKeyAt3am,
+  todayKeyAt3am,
+  lastNDaysAt3am,
+  eventsOnDayAt3am,
+  firstLastSeenForDay,
+  DAY_RESET_HOUR,
 } from '../lib/stats.js';
 import {
   categoryColor,
@@ -63,23 +69,25 @@ export default function Overview({ user, events, settings }) {
 const [activeSlice, setActiveSlice] = useState(null);
 
   const rangeDays = range === 'today' ? 1 : range === '30d' ? 30 : 7;
-  const todayKey = dayKeyLocal(new Date());
+  const todayKey = todayKeyAt3am(now);
+  const todayFirstLast = useMemo(() => firstLastSeenForDay(events, todayKey), [events, todayKey]);
 
   const rangeEvents = useMemo(() => {
-    return range === 'today' ? eventsOnDay(events, todayKey) : inRange(events, rangeDays, now);
+    return range === 'today' ? eventsOnDayAt3am(events, todayKey) : inRange(events, rangeDays, now);
   }, [events, range, todayKey, rangeDays, now]);
 
   const cur = useMemo(() => aggregate(rangeEvents), [rangeEvents]);
   const prev = useMemo(() => {
     if (range === 'today') {
-      return aggregate(eventsOnDay(events, dayKeyLocal(new Date(now - 86400000))));
+      const yesterdayKey = lastNDaysAt3am(2, now)[0];
+      return aggregate(eventsOnDayAt3am(events, yesterdayKey));
     }
     return comparePeriods(events, rangeDays, now).previous;
   }, [events, range, rangeDays, now]);
 
-  const rangeKeys = range === 'today' ? [todayKey] : lastNDays(rangeDays, now);
+  const rangeKeys = range === 'today' ? [todayKey] : lastNDaysAt3am(rangeDays, now);
   const stackBars = rangeKeys.map((k) => {
-    const dayEvents = eventsOnDay(events, k);
+    const dayEvents = eventsOnDayAt3am(events, k);
     const a = aggregate(dayEvents);
     let productive = 0;
     let distracting = 0;
@@ -136,7 +144,7 @@ const [activeSlice, setActiveSlice] = useState(null);
       {range === 'today' && (
         <div className="panel day-summary">
           <div className="head-row">
-            <h2>Today at a glance</h2>
+            <h2>Today at a glance <span className="muted" style={{fontSize:12}}>(day 03:00 → 03:00 · {todayKey})</span></h2>
             <span className="muted">{formatTime(now)}</span>
           </div>
           <div className="summary-stats">
@@ -157,6 +165,35 @@ const [activeSlice, setActiveSlice] = useState(null);
               <strong>{summary.score}</strong>
             </div>
           </div>
+        </div>
+      )}
+
+      {range === 'today' && (
+        <div className="panel" style={{padding:14}}>
+          <h3 style={{marginBottom:8}}>Browser activity — today (03:00 reset)</h3>
+          <div className="summary-stats">
+            <div>
+              <span className="label">First opened</span>
+              <strong>{todayFirstLast.firstSeenFormatted}</strong>
+              <div className="sub">{todayFirstLast.firstSeen ? new Date(todayFirstLast.firstSeen).toLocaleDateString() : '—'}</div>
+            </div>
+            <div>
+              <span className="label">Last seen</span>
+              <strong>{todayFirstLast.lastSeenFormatted}</strong>
+              <div className="sub">{todayFirstLast.lastSeen ? new Date(todayFirstLast.lastSeen).toLocaleDateString() : '—'}</div>
+            </div>
+            <div>
+              <span className="label">Sessions today</span>
+              <strong>{todayFirstLast.count}</strong>
+              <div className="sub">{todayFirstLast.durationFormatted} active</div>
+            </div>
+            <div>
+              <span className="label">Day window</span>
+              <strong>03:00 → 03:00</strong>
+              <div className="sub">resets at 03:00 daily</div>
+            </div>
+          </div>
+          <p className="hint">Day is 03:00 to next 03:00. Events 00:00–02:59 belong to previous day’s 03:00 window.</p>
         </div>
       )}
 

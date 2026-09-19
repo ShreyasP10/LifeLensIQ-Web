@@ -13,6 +13,70 @@ export function dayKeyLocal(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+export const DAY_RESET_HOUR = 3;
+
+export function dayKeyAt3am(ts) {
+  const d = new Date(Number(ts));
+  d.setHours(d.getHours() - DAY_RESET_HOUR);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+export function todayKeyAt3am(now = Date.now()) {
+  return dayKeyAt3am(now);
+}
+
+export function lastNDaysAt3am(n, now = Date.now()) {
+  const days = [];
+  const base = new Date(now);
+  base.setHours(base.getHours() - DAY_RESET_HOUR);
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(base);
+    d.setDate(d.getDate() - i);
+    days.push(dayKeyLocal(d));
+  }
+  return days;
+}
+
+export function eventsOnDayAt3am(events, key) {
+  return (events || []).filter((ev) => dayKeyAt3am(ev.ts) === key);
+}
+
+export function firstLastSeenForDay(events, day) {
+  const dayEvents = eventsOnDayAt3am(events, day);
+  if (dayEvents.length === 0) {
+    return {
+      day,
+      firstSeen: null,
+      lastSeen: null,
+      firstSeenFormatted: '—',
+      lastSeenFormatted: '—',
+      activeSeconds: 0,
+      count: 0,
+      durationFormatted: formatDuration(0),
+    };
+  }
+  let first = Infinity;
+  let last = -Infinity;
+  let activeSeconds = 0;
+  for (const ev of dayEvents) {
+    const s = Number(ev.ts) || 0;
+    const e = Number(ev.endTs) || s + (Number(ev.durationSeconds) || 0) * 1000;
+    if (s < first) first = s;
+    if (e > last) last = e;
+    activeSeconds += Number(ev.durationSeconds) || 0;
+  }
+  return {
+    day,
+    firstSeen: first,
+    lastSeen: last,
+    firstSeenFormatted: formatTime(first),
+    lastSeenFormatted: formatTime(last),
+    activeSeconds,
+    count: dayEvents.length,
+    durationFormatted: formatDuration(activeSeconds),
+  };
+}
+
 export function formatDuration(seconds) {
   const s = Math.round(Number(seconds) || 0);
   if (s < 60) return `${s}s`;
@@ -68,7 +132,7 @@ export function aggregate(events, opts = {}) {
       total.byDomain[ev.domain] = (total.byDomain[ev.domain] || 0) + dur;
     }
     if (ts) {
-      const dk = dayKey(ts);
+      const dk = dayKeyAt3am(ts);
       total.byDay[dk] = (total.byDay[dk] || 0) + dur;
       seenDays.add(dk);
       total.byHour[d.getHours()] = (total.byHour[d.getHours()] || 0) + dur;
@@ -133,9 +197,9 @@ export function focusStreak(events, now = Date.now()) {
   const active = new Set(
     (events || [])
       .filter((ev) => (Number(ev.durationSeconds) || 0) > 0)
-      .map((ev) => dayKey(ev.ts))
+      .map((ev) => dayKeyAt3am(ev.ts))
   );
-  const days = lastNDays(366, now);
+  const days = lastNDaysAt3am(366, now);
   let streak = 0;
   for (let i = days.length - 1; i >= 0; i--) {
     if (i === days.length - 1 && !active.has(days[i])) continue;
@@ -221,10 +285,10 @@ export function streakForTarget(events, targetMinutes, now = Date.now()) {
     const ts = Number(ev.ts) || 0;
     if (dur <= 0 || !ts) continue;
     const w = CATEGORY_WEIGHTS[ev.category] ?? 0.2;
-    const dk = dayKey(ts);
+    const dk = dayKeyAt3am(ts);
     perDay.set(dk, (perDay.get(dk) || 0) + dur * w);
   }
-  const days = lastNDays(366, now);
+  const days = lastNDaysAt3am(366, now);
   let streak = 0;
   for (let i = days.length - 1; i >= 0; i--) {
     if (i === days.length - 1 && (perDay.get(days[i]) || 0) < targetMinutes * 60) continue;
@@ -432,9 +496,9 @@ export function trendSeries(events, period, now = Date.now()) {
     }
   } else {
     const days = period === 1 ? 1 : period === 7 ? 7 : 30;
-    for (const key of lastNDays(days, now)) {
+    for (const key of lastNDaysAt3am(days, now)) {
       const b = emptyBucket();
-      for (const ev of eventsOnDay(events, key)) {
+      for (const ev of eventsOnDayAt3am(events, key)) {
         const dur = Number(ev.durationSeconds) || 0;
         b.screen += dur;
         if (isProductiveCategory(ev.category)) b.study += dur;
