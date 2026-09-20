@@ -51,6 +51,7 @@ const RANGES = [
   ['today', 'Today'],
   ['7d', '7 days'],
   ['30d', '30 days'],
+  ['90d', '90 days'],
 ];
 
 const STACK_COLORS = { productive: '#4ade80', neutral: '#94a3b8', distracting: '#f87171' };
@@ -68,7 +69,7 @@ export default function Overview({ user, events, settings }) {
   const [range, setRange] = useState('7d');
 const [activeSlice, setActiveSlice] = useState(null);
 
-  const rangeDays = range === 'today' ? 1 : range === '30d' ? 30 : 7;
+  const rangeDays = range === 'today' ? 1 : range === '90d' ? 90 : range === '30d' ? 30 : 7;
   const todayKey = todayKeyAt3am(now);
   const todayFirstLast = useMemo(() => firstLastSeenForDay(events, todayKey), [events, todayKey]);
 
