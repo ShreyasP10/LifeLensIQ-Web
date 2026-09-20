@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { dayKeyLocal, formatDuration } from '../lib/stats.js';
+import { dayKeyLocal, dayKeyAt3am, formatDuration } from '../lib/stats.js';
 import {
   CATEGORY_WEIGHTS,
   isProductiveCategory,
@@ -44,12 +44,14 @@ export default function Heatmap({ events, days = 365 }) {
     for (const ev of events || []) {
       const seconds = secondsFor(ev, mode);
       if (seconds <= 0) continue;
-      const key = dayKeyLocal(new Date(Number(ev.ts)));
+      const key = dayKeyAt3am(Number(ev.ts));
       byDay[key] = (byDay[key] || 0) + seconds;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = Date.now();
+    const today = new Date(now);
+    if (today.getHours() < 3) today.setDate(today.getDate() - 1);
+    today.setHours(3, 0, 0, 0);
 
     const start = new Date(today);
     start.setDate(start.getDate() - (days - 1));
