@@ -46,6 +46,7 @@ import {
 import Insights from './Insights.jsx';
 import Heatmap from './Heatmap.jsx';
 import WakeSleepCard from './WakeSleepCard.jsx';
+import ActivitySlots from './ActivitySlots.jsx';
 
 const RANGES = [
   ['today', 'Today'],
@@ -432,6 +433,10 @@ const [activeSlice, setActiveSlice] = useState(null);
             {target ? `≥ ${target} min/day (set in Settings)` : 'any activity (set a target in Settings)'}
           </div>
         </div>
+      </div>
+
+      <div className="grid">
+        <ActivitySlots events={events} days={range === 'today' ? 1 : rangeDays} />
       </div>
 
       <div className="card">
