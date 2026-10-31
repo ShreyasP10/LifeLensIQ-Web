@@ -15,6 +15,8 @@ import {
 } from './firebase.js';
 import { isLight, toggleTheme } from './lib/theme.js';
 import { normalizeEvent } from './lib/events.js';
+import { CATEGORIES } from './lib/categories.js';
+import { classify } from '../../extension/src/shared/categories.js';
 import { detectAnomalies } from './lib/insights.js';
 import Login from './components/Login.jsx';
 import Overview from './components/Overview.jsx';
@@ -24,7 +26,6 @@ import ExportPanel from './components/ExportPanel.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import ManualEntry from './components/ManualEntry.jsx';
-import AdminLocal from './components/AdminLocal.jsx';
 
 const TABS = [
   ['overview', 'Overview'],
@@ -102,11 +103,35 @@ function Dashboard({ user }) {
     return `Phone · ${id.slice(0, 4)}`;
   };
 
+  const effectiveEvents = useMemo(() => {
+    if (!events) return null;
+    const overrides = settings.domainCategories || {};
+    const keys = Object.keys(overrides)
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
+    return events.map((ev) => {
+      if (!ev.domain) return ev;
+      let forced = overrides[ev.domain];
+      if (!forced) {
+        for (const k of keys) {
+          if (ev.domain.endsWith('.' + k)) {
+            forced = overrides[k];
+            break;
+          }
+        }
+      }
+      if (forced && forced !== ev.category) return { ...ev, category: forced };
+      if (ev.category !== CATEGORIES.OTHER) return ev;
+      const c = classify(ev.domain, ev.path || '', overrides);
+      return c !== CATEGORIES.OTHER ? { ...ev, category: c } : ev;
+    });
+  }, [events, settings]);
+
   const filteredEvents = useMemo(() => {
-    if (!events) return [];
-    if (deviceFilter === 'all') return events;
-    return events.filter((ev) => eventDevice(ev) === deviceFilter);
-  }, [events, deviceFilter]);
+    const base = effectiveEvents || [];
+    if (deviceFilter === 'all') return base;
+    return base.filter((ev) => eventDevice(ev) === deviceFilter);
+  }, [effectiveEvents, deviceFilter]);
 
   const syncRef = useRef(null);
   syncRef.current = syncNow;
@@ -269,7 +294,6 @@ function Dashboard({ user }) {
       )}
 
       <main>
-        <AdminLocal currentUser={user} />
         <div className="device-filter">
           {deviceOptions.map((id) => (
             <button

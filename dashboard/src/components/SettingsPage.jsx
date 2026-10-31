@@ -13,8 +13,11 @@ import {
   setDoc,
   deleteDoc,
 } from '../firebase.js';
-import { CATEGORY_KEYS } from '../lib/categories.js';
+import { CATEGORY_KEYS, CATEGORY_COLORS } from '../lib/categories.js';
 import { formatTime, formatDuration } from '../lib/stats.js';
+import { rulesByCategory } from '../../../extension/src/shared/categories.js';
+
+const SITE_CATALOG = rulesByCategory();
 
 export default function SettingsPage({ user, settings, events }) {
   const overrides = settings.domainCategories || {};
@@ -24,6 +27,7 @@ export default function SettingsPage({ user, settings, events }) {
   const [status, setStatus] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busyDelete, setBusyDelete] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   useEffect(() => {
     setTarget(String(settings.focusTargetMinutes || 120));
@@ -76,9 +80,24 @@ export default function SettingsPage({ user, settings, events }) {
     setTimeout(() => setStatus(''), 3000);
   }
 
+  function extractDomain(input) {
+    let raw = String(input || '').trim().toLowerCase();
+    if (!raw) return '';
+    raw = raw.replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
+    raw = raw.split(/[/?#]/)[0];
+    if (raw.startsWith('[') && raw.includes(']')) return raw;
+    raw = raw.replace(/:\d+$/, '');
+    raw = raw.replace(/^www\./, '');
+    if (!raw || /\s/.test(raw) || /[\\]/.test(raw)) return '';
+    return raw;
+  }
+
   function addOverride() {
-    const d = domain.trim().toLowerCase().replace(/^www\./, '');
-    if (!d) return;
+    const d = extractDomain(domain);
+    if (!d) {
+      flash('Enter a valid link or domain.', false);
+      return;
+    }
     const next = { ...overrides, [d]: category };
     saveOverrides(next);
     setDomain('');
@@ -131,14 +150,16 @@ export default function SettingsPage({ user, settings, events }) {
       <div className="panel">
         <h2>Category Overrides</h2>
         <p className="muted" style={{ marginBottom: 10 }}>
-          These rules are applied by the extension at capture time. Add e.g.
-          <code> youtube.com → Study</code> if you watch coding channels.
+          Paste any website link or domain, pick a category, and Add. It is saved to your account
+          and applies to your tracked data (including old Other events) on this dashboard and
+          future captures.
         </p>
         <div className="form-row">
           <input
-            placeholder="domain, e.g. youtube.com"
+            placeholder="paste a link or domain, e.g. https://skills.google/learn"
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addOverride(); }}
           />
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
             {CATEGORY_KEYS.map((c) => (
@@ -147,17 +168,111 @@ export default function SettingsPage({ user, settings, events }) {
           </select>
           <button onClick={addOverride}>Add</button>
         </div>
-        <div className="list-inline">
-          {Object.entries(overrides).map(([d, c]) => (
-            <span className="chip" key={d}>
-              {d} → {c}
-              <button onClick={() => removeOverride(d)}>×</button>
-            </span>
-          ))}
-          {Object.keys(overrides).length === 0 && <span className="muted">No overrides yet.</span>}
+        <div className="btn-row">
+          <button className="secondary" onClick={() => setCatalogOpen(true)}>
+            View all categorized sites
+          </button>
+          <span className="muted" style={{ fontSize: 12 }}>
+            your rules and the built-in catalog, grouped by category
+          </span>
         </div>
         {status && <p className="hint" style={{ color: status.startsWith('Category') ? 'var(--ok)' : 'var(--danger)' }}>{status}</p>}
       </div>
+
+      {catalogOpen && (
+        <div className="modal-backdrop" onClick={() => setCatalogOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="head-row">
+              <h2>All categorized sites</h2>
+              <button className="modal-close secondary" onClick={() => setCatalogOpen(false)}>×</button>
+            </div>
+            <p className="muted" style={{ marginBottom: 14 }}>
+              Your rules always win over the built-in list. Short video link paths count as
+              Short-form Video, your computer's own addresses (localhost, home network IPs) count
+              as Development, and anything unknown falls under Other.
+            </p>
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  margin: '6px 0',
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                <span
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: 99,
+                    background: 'var(--grad)',
+                    boxShadow: '0 0 7px var(--accent)',
+                  }}
+                />
+                Your overrides
+                <span className="chip-count">{Object.keys(overrides).length}</span>
+              </div>
+              <div className="chip-row" style={{ marginBottom: 0 }}>
+                {Object.entries(overrides).map(([d, c]) => (
+                  <span className="chip" key={d} style={{ fontSize: 11.5 }}>
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 99,
+                        background: CATEGORY_COLORS[c] || CATEGORY_COLORS.Other,
+                      }}
+                    />
+                    {d}
+                    <strong style={{ fontWeight: 600, opacity: 0.75 }}>{c}</strong>
+                    <button onClick={() => removeOverride(d)} title="Remove override">×</button>
+                  </span>
+                ))}
+                {Object.keys(overrides).length === 0 && (
+                  <span className="muted">No overrides yet — add one above.</span>
+                )}
+              </div>
+            </div>
+            {CATEGORY_KEYS.map((c) =>
+              SITE_CATALOG[c] && SITE_CATALOG[c].length > 0 ? (
+                <div key={c} style={{ marginBottom: 14 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      margin: '6px 0',
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 9,
+                        height: 9,
+                        borderRadius: 99,
+                        background: CATEGORY_COLORS[c],
+                        boxShadow: `0 0 7px ${CATEGORY_COLORS[c]}`,
+                      }}
+                    />
+                    {c}
+                    <span className="chip-count">{SITE_CATALOG[c].length}</span>
+                  </div>
+                  <div className="chip-row" style={{ marginBottom: 0 }}>
+                    {SITE_CATALOG[c]
+                      .filter((d) => !(d in overrides))
+                      .map((d) => (
+                        <span className="chip" key={d} style={{ fontSize: 11.5 }}>{d}</span>
+                      ))}
+                  </div>
+                </div>
+              ) : null
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="panel">
         <h2>Daily Focus Target</h2>

@@ -1,5 +1,10 @@
 const THEME_KEY = 'lifelensiq.theme';
 
+function syncMetaThemeColor(theme) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', theme === 'light' ? '#ffffff' : '#000000');
+}
+
 export function getSavedTheme() {
   try {
     const t = localStorage.getItem(THEME_KEY);
@@ -11,6 +16,7 @@ export function getSavedTheme() {
 
 export function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
+  syncMetaThemeColor(theme);
 }
 
 export function initTheme() {

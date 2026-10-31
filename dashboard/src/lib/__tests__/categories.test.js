@@ -67,6 +67,7 @@ describe('extension classify (shared rules)', () => {
     expect(classify('apsit.edu.in', '/')).toBe('Study');
     expect(classify('moodle.org', '/course/view.php')).toBe('Study');
     expect(classify('nptel.ac.in', '/course')).toBe('Study');
+    expect(classify('credly.com', '/')).toBe('Study');
   });
 
   it('coding practice sites are DSA', () => {
@@ -105,6 +106,12 @@ describe('extension classify (shared rules)', () => {
     expect(classify('anything.stackoverflow.com', '/')).toBe('Development');
   });
 
+  it('deploys on vercel.app count as Productivity', () => {
+    expect(classify('shreyaspawardev.vercel.app', '/')).toBe('Productivity');
+    expect(classify('life-lens-iq-web.vercel.app', '/')).toBe('Productivity');
+    expect(classify('any-app.vercel.app', '/report')).toBe('Productivity');
+  });
+
   it('applies user overrides before built-in rules', () => {
     expect(classify('youtube.com', '/watch?v=1', { 'youtube.com': 'Study' })).toBe('Study');
     expect(classify('youtube.com', '/shorts/x', { 'youtube.com': 'Study' })).toBe(
@@ -115,5 +122,31 @@ describe('extension classify (shared rules)', () => {
   it('falls back to Other', () => {
     expect(classify('somerandom.example', '/')).toBe(CATEGORIES.OTHER);
     expect(classify('', '/')).toBe(CATEGORIES.OTHER);
+  });
+
+  it('classifies localhost and private IPs as Development', () => {
+    expect(classify('localhost', '/')).toBe('Development');
+    expect(classify('localhost:5173', '/')).toBe('Development');
+    expect(classify('myapp.localhost', '/')).toBe('Development');
+    expect(classify('127.0.0.1', '/')).toBe('Development');
+    expect(classify('0.0.0.0', '/')).toBe('Development');
+    expect(classify('::1', '/')).toBe('Development');
+    expect(classify('192.168.1.5', '/')).toBe('Development');
+    expect(classify('10.0.14.22', '/')).toBe('Development');
+    expect(classify('172.16.5.1', '/')).toBe('Development');
+    expect(classify('172.31.255.1', '/')).toBe('Development');
+  });
+
+  it('still respects overrides over the local dev rule', () => {
+    expect(classify('localhost', '/', { 'localhost': 'Study' })).toBe('Study');
+  });
+
+  it('does not misclassify public IPs or lookalikes', () => {
+    expect(classify('8.8.8.8', '/')).toBe(CATEGORIES.OTHER);
+    expect(classify('172.32.1.1', '/')).toBe(CATEGORIES.OTHER);
+    expect(classify('172.15.0.9', '/')).toBe(CATEGORIES.OTHER);
+    expect(classify('191.168.1.5', '/')).toBe(CATEGORIES.OTHER);
+    expect(classify('test.com', '/')).toBe(CATEGORIES.OTHER);
+    expect(classify('notion.so', '/', { })).toBe('Productivity');
   });
 });
