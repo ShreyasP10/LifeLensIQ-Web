@@ -241,8 +241,91 @@ export function deepFocusSessions(events, minMinutes = 30, gapMinutes = 5) {
   return sessions;
 }
 
-export function daySummary(events, now = Date.now()) {
-  const today = eventsOnDay(events, dayKeyLocal(new Date(now)));
+export function activeIdleForDay(events, day) {
+  const fl = firstLastSeenForDay(events, day);
+  const hasData = Boolean(fl.firstSeen && fl.lastSeen);
+  const windowSeconds = hasData ? Math.max(0, Math.round((fl.lastSeen - fl.firstSeen) / 1000)) : 0;
+  const activeSeconds = Math.max(0, Math.min(Math.round(fl.activeSeconds || 0), windowSeconds));
+  const idleSeconds = Math.max(0, windowSeconds - activeSeconds);
+  const utilization = windowSeconds > 0 ? Math.round((activeSeconds / windowSeconds) * 100) : 0;
+  return {
+    day,
+    hasData,
+    windowSeconds,
+    activeSeconds,
+    idleSeconds,
+    utilization,
+    activeFormatted: formatDuration(activeSeconds),
+    idleFormatted: formatDuration(idleSeconds),
+    windowFormatted: formatDuration(windowSeconds),
+  };
+}
+
+export function attentionScore(events, days = 1, now = Date.now()) {
+  const keys = days == null ? null : new Set(lastNDays(days, now));
+  const valid = (events || [])
+    .filter((ev) => {
+      if ((Number(ev.durationSeconds) || 0) <= 0 || !ev.domain) return false;
+      return !keys || keys.has(dayKey(ev.ts));
+    })
+    .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+  if (valid.length === 0) {
+    return {
+      score: 0,
+      avgBlockSeconds: 0,
+      switches: 0,
+      switchesPerHour: 0,
+      activeSeconds: 0,
+      focusShare: 0,
+    };
+  }
+  let activeSeconds = 0;
+  let weighted = 0;
+  let switches = 0;
+  const blockSeconds = [];
+  let cur = null;
+  for (const ev of valid) {
+    const dur = Number(ev.durationSeconds) || 0;
+    const ts = Number(ev.ts) || 0;
+    const end = Number(ev.endTs) || ts + dur * 1000;
+    activeSeconds += dur;
+    weighted += dur * (CATEGORY_WEIGHTS[ev.category] ?? 0.2);
+    if (cur && ev.domain === cur.domain && ts - cur.end <= 5 * 60000) {
+      cur.seconds += dur;
+      cur.end = Math.max(cur.end, end);
+    } else {
+      if (cur) blockSeconds.push(cur.seconds);
+      cur = { domain: ev.domain, seconds: dur, end };
+    }
+  }
+  if (cur) blockSeconds.push(cur.seconds);
+  for (let i = 1; i < valid.length; i++) {
+    const a = valid[i - 1];
+    const b = valid[i];
+    const gap = (Number(b.ts) || 0) - (Number(a.endTs) || Number(a.ts) || 0);
+    if (gap <= 2 * 60000 && a.domain !== b.domain) switches += 1;
+  }
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  const avgBlockSeconds = blockSeconds.reduce((a, s) => a + s, 0) / blockSeconds.length;
+  const focusShare = activeSeconds > 0 ? weighted / activeSeconds : 0;
+  const perHour = activeSeconds > 0 ? switches / (activeSeconds / 3600) : 0;
+  const score = Math.round(
+    100 *
+      (0.45 * clamp01(avgBlockSeconds / (30 * 60)) +
+        0.35 * clamp01(focusShare) +
+        0.2 * (1 - clamp01((perHour - 5) / 20)))
+  );
+  return {
+    score,
+    avgBlockSeconds: Math.round(avgBlockSeconds),
+    switches,
+    switchesPerHour: Math.round(perHour * 10) / 10,
+    activeSeconds: Math.round(activeSeconds),
+    focusShare: Math.round(focusShare * 100),
+  };
+}
+
+export function daySummary(events, now = Date.now()) {  const today = eventsOnDay(events, dayKeyLocal(new Date(now)));
   const a = aggregate(today);
   let studySeconds = 0;
   for (const [c, s] of Object.entries(a.byCategory)) {

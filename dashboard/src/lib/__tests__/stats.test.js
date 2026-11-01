@@ -28,6 +28,8 @@ streakForTarget,
   chargeSessions,
   trendSeries,
   monthComparison,
+  activeIdleForDay,
+  attentionScore,
 } from '../stats.js';
 
 const ev = (id, ts, durationSeconds, category, overrides = {}) => ({
@@ -485,5 +487,63 @@ describe('monthComparison', () => {
     expect(study.current).toBe(3600);
     expect(study.previous).toBe(3600);
     expect(study.change).toBe(0);
+  });
+});
+
+describe('activeIdleForDay', () => {
+  const now = new Date(2026, 8, 15, 20, 0).getTime();
+  const base = new Date(2026, 8, 15, 9, 0).getTime();
+
+  it('derives utilization from the screen-on window', () => {
+    const events = [
+      ev('a', base, 1200, 'Study', { endTs: base + 1200000 }),
+      ev('b', base + 3600000, 1800, 'Study', { endTs: base + 5400000 }),
+    ];
+    const r = activeIdleForDay(events, dayKeyLocal(new Date(now)));
+    expect(r.hasData).toBe(true);
+    expect(r.activeSeconds).toBe(3000);
+    expect(r.windowSeconds).toBe(5400);
+    expect(r.idleSeconds).toBe(2400);
+    expect(r.utilization).toBe(56);
+  });
+
+  it('caps active at the window and reports zero without data', () => {
+    const base2 = new Date(2026, 8, 15, 10, 0).getTime();
+    const events = [ev('a', base2 - 600000, 1800, 'Study', { endTs: base2 + 1200000 })];
+    const r = activeIdleForDay(events, dayKeyLocal(new Date(now)));
+    expect(r.activeSeconds).toBe(r.windowSeconds);
+    expect(r.idleSeconds).toBe(0);
+    expect(activeIdleForDay([], dayKeyLocal(new Date(now))).hasData).toBe(false);
+  });
+});
+
+describe('attentionScore', () => {
+  const now = new Date(2026, 8, 15, 20, 0).getTime();
+  const base = new Date(2026, 8, 15, 9, 0).getTime();
+
+  it('scores one long uninterrupted domain block high', () => {
+    const events = [1, 2, 3].map((i) =>
+      ev(`s${i}`, base + (i - 1) * 1860000, 1800, 'Study', { domain: 'leetcode.com', endTs: base + (i - 1) * 1860000 + 1800000 })
+    );
+    const r = attentionScore(events, 1, now);
+    expect(r.score).toBeGreaterThanOrEqual(90);
+    expect(r.avgBlockSeconds).toBe(5400);
+    expect(r.switches).toBe(0);
+  });
+
+  it('scores rapid site hopping low', () => {
+    const events = [];
+    for (let i = 0; i < 30; i++) {
+      const ts = base + i * 120000;
+      const domain = i % 2 === 0 ? 'leetcode.com' : 'hotstar.com';
+      events.push(ev(`h${i}`, ts, 60, i % 2 === 0 ? 'DSA' : 'Entertainment', { domain, endTs: ts + 60000 }));
+    }
+    const r = attentionScore(events, 1, now);
+    expect(r.score).toBeLessThanOrEqual(45);
+    expect(r.switches).toBe(29);
+  });
+
+  it('returns zeros without data', () => {
+    expect(attentionScore([], 1, now).score).toBe(0);
   });
 });

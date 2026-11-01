@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildInsights, domainTransitions, detectAnomalies } from '../insights.js';
+import { buildInsights, domainTransitions, detectAnomalies, buildCorrelations } from '../insights.js';
 
 const ev = (id, ts, durationSeconds, category, overrides = {}) => ({
   id,
@@ -123,5 +123,67 @@ it('flags 3h+ uninterrupted distraction runs', () => {
     const base = now - 3600000;
     const events = [ev('a', base, 3600, 'Study', { endTs: base + 3600000 })];
     expect(detectAnomalies(events, now)).toEqual([]);
+  });
+
+  it('ranks distraction runs by cost inside scheduled classes', () => {
+    let base = new Date(2026, 8, 1, 9, 0);
+    while (base.getDay() !== 1) base.setDate(base.getDate() + 1); // a Monday
+    const now = base.getTime() + 7 * 3600000;
+    const classRun = [];
+    for (let i = 0; i < 8; i++) {
+      const t = base.getTime() + 30 * 60000 + i * 1800000; // 09:30 → 13:30, inside 09–11 class
+      classRun.push(ev(`c${i}`, t, 1800, 'Timepass', { domain: 'instagram.com', endTs: t + 1800000 }));
+    }
+    const offRun = [];
+    for (let i = 0; i < 7; i++) {
+      const t = base.getTime() + 5.5 * 3600000 + i * 1800000; // 14:30 same day, outside class
+      offRun.push(ev(`o${i}`, t, 1800, 'Entertainment', { domain: 'hotstar.com', endTs: t + 1800000 }));
+    }
+    const timetable = { entries: [{ day: 'Monday', startTime: '09:00', endTime: '11:00' }] };
+    const [first, second] = detectAnomalies([...classRun, ...offRun], now, { timetable });
+    expect(first.costMinutes).toBeGreaterThan(second.costMinutes);
+    expect(first.detail).toContain('scheduled classes');
+    expect(second.costMinutes).toBe(0);
+  });
+});
+
+describe('buildCorrelations', () => {
+  function daysOfEvents(builder, n, now) {
+    const events = [];
+    for (let i = 0; i < n; i++) {
+      const day = now - i * 86400000;
+      events.push(...builder(i, day));
+    }
+    return events;
+  }
+
+  it('links morning distraction to lower productive time', () => {
+    const now = new Date(2026, 8, 15, 21, 0).getTime();
+    const events = daysOfEvents(
+      (i, day) => {
+        const morning = new Date(day);
+        morning.setHours(7, 0, 0, 0);
+        const afternoon = new Date(day);
+        afternoon.setHours(15, 0, 0, 0);
+        const studyLen = i % 2 === 0 ? 1200 : 2400; // 20 or 40 min
+        const evs = [ev(`s${i}`, afternoon.getTime(), studyLen, 'DSA', { domain: 'leetcode.com', endTs: afternoon.getTime() + studyLen * 1000 })];
+        if (i % 2 === 0) {
+          evs.unshift(ev(`m${i}`, morning.getTime(), 1800, 'Entertainment', { domain: 'hotstar.com', endTs: morning.getTime() + 1800000 }));
+        }
+        return evs;
+      },
+      9,
+      now
+    );
+    const corr = buildCorrelations(events, 30, now);
+    const c = corr.find((r) => r.title.includes('morning distraction'));
+    expect(c).toBeTruthy();
+    expect(c.pct).toBeLessThan(0);
+    expect(c.kind).toBe('down');
+  });
+
+  it('returns [] with too little data', () => {
+    const now = new Date(2026, 8, 15, 21, 0).getTime();
+    expect(buildCorrelations([ev('a', now - 1000, 600, 'Study')], 30, now)).toEqual([]);
   });
 });

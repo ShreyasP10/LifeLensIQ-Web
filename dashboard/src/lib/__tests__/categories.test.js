@@ -11,6 +11,7 @@ import {
 import {
   classify,
   SHORT_URL_RE,
+  matchOverride,
 } from '../../../../extension/src/shared/categories.js';
 
 describe('dashboard categories', () => {
@@ -148,5 +149,34 @@ describe('extension classify (shared rules)', () => {
     expect(classify('191.168.1.5', '/')).toBe(CATEGORIES.OTHER);
     expect(classify('test.com', '/')).toBe(CATEGORIES.OTHER);
     expect(classify('notion.so', '/', { })).toBe('Productivity');
+  });
+});
+
+describe('path-level override rules', () => {
+  it('domain rules still work without a path key', () => {
+    expect(matchOverride('youtube.com', '/watch?v=1', { 'youtube.com': 'Study' })).toBe('Study');
+  });
+
+  it('a domain + path key matches only matching path prefixes', () => {
+    const ov = { 'youtube.com/playlist': 'Study' };
+    expect(matchOverride('youtube.com', '/playlist?list=abc', ov)).toBe('Study');
+    expect(matchOverride('youtube.com', '/watch?v=1', ov)).toBe(null);
+  });
+
+  it('longest match wins regardless of exact/suffix', () => {
+    const ov = { 'github.com': 'Timepass', 'github.com/feature': 'Development' };
+    expect(matchOverride('github.com', '/feature/x', ov)).toBe('Development');
+    expect(matchOverride('github.com', '/home', ov)).toBe('Timepass');
+    expect(matchOverride('gist.github.com', '/x', ov)).toBe('Timepass');
+  });
+
+  it('classify applies path overrides before built-in rules', () => {
+    expect(classify('github.com', '/feature/x', { 'github.com': 'Timepass', 'github.com/feature': 'Development' })).toBe('Development');
+  });
+
+  it('exact-deeper-path override beats shorter domain override', () => {
+    const ov = { 'youtube.com': 'Timepass', 'youtube.com/watch': 'Study' };
+    expect(classify('youtube.com', '/watch?v=1', ov)).toBe('Study');
+    expect(classify('youtube.com', '/feed', ov)).toBe('Timepass');
   });
 });

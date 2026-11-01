@@ -16,8 +16,9 @@ import {
 import { isLight, toggleTheme } from './lib/theme.js';
 import { normalizeEvent } from './lib/events.js';
 import { CATEGORIES } from './lib/categories.js';
-import { classify } from '../../extension/src/shared/categories.js';
+import { classify, matchOverride } from '../../extension/src/shared/categories.js';
 import { detectAnomalies } from './lib/insights.js';
+import { normalizeTimetable } from './lib/timetable.js';
 import Login from './components/Login.jsx';
 import Overview from './components/Overview.jsx';
 import Timeline from './components/Timeline.jsx';
@@ -64,6 +65,7 @@ function Dashboard({ user }) {
   const [deviceFilter, setDeviceFilter] = useState('all');
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
+  const [timetable, setTimetable] = useState(null);
 
   const syncNow = async () => {
     setSyncing(true);
@@ -80,8 +82,8 @@ function Dashboard({ user }) {
   };
 
   const anomalies = useMemo(
-    () => (events ? detectAnomalies(events) : []),
-    [events]
+    () => (events ? detectAnomalies(events, Date.now(), { timetable }) : []),
+    [events, timetable]
   );
   const [dismissed, setDismissed] = useState({});
   const activeAlerts = anomalies.filter((a) => !dismissed[`${a.title}-${a.detail}`]);
@@ -106,20 +108,9 @@ function Dashboard({ user }) {
   const effectiveEvents = useMemo(() => {
     if (!events) return null;
     const overrides = settings.domainCategories || {};
-    const keys = Object.keys(overrides)
-      .filter(Boolean)
-      .sort((a, b) => b.length - a.length);
     return events.map((ev) => {
       if (!ev.domain) return ev;
-      let forced = overrides[ev.domain];
-      if (!forced) {
-        for (const k of keys) {
-          if (ev.domain.endsWith('.' + k)) {
-            forced = overrides[k];
-            break;
-          }
-        }
-      }
+      const forced = matchOverride(ev.domain, ev.path || '', overrides);
       if (forced && forced !== ev.category) return { ...ev, category: forced };
       if (ev.category !== CATEGORIES.OTHER) return ev;
       const c = classify(ev.domain, ev.path || '', overrides);
@@ -167,6 +158,22 @@ function Dashboard({ user }) {
       ref,
       (d) => {
         if (d.exists()) setSettings(d.data());
+      },
+      () => {}
+    );
+    return unsub;
+  }, [user.uid]);
+
+  useEffect(() => {
+    const ref = doc(db, 'users', user.uid, 'timetable', 'data');
+    const unsub = onSnapshot(
+      ref,
+      (d) => {
+        try {
+          setTimetable(d.exists() ? normalizeTimetable(d.data()) : null);
+        } catch {
+          setTimetable(null);
+        }
       },
       () => {}
     );

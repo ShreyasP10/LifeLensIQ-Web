@@ -138,14 +138,26 @@ export function rulesByCategory() {
   return map;
 }
 
+export function matchOverride(domain, path, overrides = {}) {
+  const keys = Object.keys(overrides)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    const sep = key.indexOf('/');
+    const dom = sep >= 0 ? key.slice(0, sep) : key;
+    const pfx = sep >= 0 ? key.slice(sep) : '';
+    const domMatch = domain === dom || domain.endsWith('.' + dom);
+    if (!domMatch) continue;
+    if (!pfx || (path || '').startsWith(pfx)) return overrides[key] || null;
+  }
+  return null;
+}
+
 export function classify(domain, path, overrides = {}) {
   if (!domain) return CATEGORIES.OTHER;
   if (path && SHORT_URL_RE.test(path)) return CATEGORIES.SHORT_VIDEO;
-  if (overrides[domain]) return overrides[domain];
-  const keys = Object.keys(overrides).sort((a, b) => b.length - a.length);
-  for (const key of keys) {
-    if (overrides[key] && (domain === key || domain.endsWith('.' + key))) return overrides[key];
-  }
+  const overrideHit = matchOverride(domain, path, overrides);
+  if (overrideHit) return overrideHit;
   // Local dev servers (localhost, LAN/private IPs, .local/.test) are coding work
   if (isLocalDevHost(domain)) return CATEGORIES.DEVELOPMENT;
   for (const [category, domains] of RULES) {

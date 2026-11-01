@@ -80,22 +80,24 @@ export default function SettingsPage({ user, settings, events }) {
     setTimeout(() => setStatus(''), 3000);
   }
 
-  function extractDomain(input) {
+  function extractKey(input) {
     let raw = String(input || '').trim().toLowerCase();
     if (!raw) return '';
     raw = raw.replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
-    raw = raw.split(/[/?#]/)[0];
-    if (raw.startsWith('[') && raw.includes(']')) return raw;
-    raw = raw.replace(/:\d+$/, '');
-    raw = raw.replace(/^www\./, '');
-    if (!raw || /\s/.test(raw) || /[\\]/.test(raw)) return '';
-    return raw;
+    raw = raw.split(/[?#]/)[0].replace(/\/+$/, '');
+    const slash = raw.indexOf('/');
+    let host = slash >= 0 ? raw.slice(0, slash) : raw;
+    const rest = slash >= 0 ? raw.slice(slash) : '';
+    if (!host.includes(']')) host = host.replace(/:\d+$/, '');
+    host = host.replace(/^www\./, '');
+    if (!host || /\s/.test(host + rest) || /[\\<>"]/.test(host + rest)) return '';
+    return host + rest;
   }
 
   function addOverride() {
-    const d = extractDomain(domain);
+    const d = extractKey(domain);
     if (!d) {
-      flash('Enter a valid link or domain.', false);
+      flash('Enter a valid link, domain or domain + path.', false);
       return;
     }
     const next = { ...overrides, [d]: category };
@@ -150,13 +152,14 @@ export default function SettingsPage({ user, settings, events }) {
       <div className="panel">
         <h2>Category Overrides</h2>
         <p className="muted" style={{ marginBottom: 10 }}>
-          Paste any website link or domain, pick a category, and Add. It is saved to your account
-          and applies to your tracked data (including old Other events) on this dashboard and
-          future captures.
+          Paste any website link, domain, or domain + path (like <code>youtube.com/watch</code>),
+          pick a category, and Add. Path rules apply to deeper links only — a domain rule like{' '}
+          <code>youtube.com</code> covers the rest. Saved to your account and applied to your
+          tracked data (including old Other events) on this dashboard and future captures.
         </p>
         <div className="form-row">
           <input
-            placeholder="paste a link or domain, e.g. https://skills.google/learn"
+            placeholder="paste a link, domain, or domain + path e.g. youtube.com/watch"
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') addOverride(); }}

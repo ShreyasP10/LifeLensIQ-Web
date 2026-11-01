@@ -35,6 +35,9 @@ import {
   lastNDaysAt3am,
   eventsOnDayAt3am,
   firstLastSeenForDay,
+  activeIdleForDay,
+  attentionScore,
+  bestFocusWindow,
   DAY_RESET_HOUR,
 } from '../lib/stats.js';
 import {
@@ -47,6 +50,7 @@ import Insights from './Insights.jsx';
 import Heatmap from './Heatmap.jsx';
 import WakeSleepCard from './WakeSleepCard.jsx';
 import ActivitySlots from './ActivitySlots.jsx';
+import { buildCorrelations } from '../lib/insights.js';
 
 const RANGES = [
   ['today', 'Today'],
@@ -131,6 +135,25 @@ const [activeSlice, setActiveSlice] = useState(null);
   );
   const focus = useMemo(() => focusSessions(rangeEvents), [rangeEvents]);
   const weekdayBars = useMemo(() => weekdayAverages(events), [events]);
+  const activeIdle = useMemo(() => activeIdleForDay(events, todayKey), [events, todayKey]);
+  const attention = useMemo(() => attentionScore(rangeEvents, null), [rangeEvents]);
+  const peak = useMemo(
+    () =>
+      bestFocusWindow(events, {
+        days: range === 'today' ? 7 : Math.max(rangeDays, 14),
+        windowHours: 3,
+        now,
+      }),
+    [events, range, rangeDays, now]
+  );
+  const correlations = useMemo(
+    () => (range === 'today' ? [] : buildCorrelations(events, rangeDays, now)),
+    [events, range, rangeDays, now]
+  );
+  const hourLabel = (h) => {
+    const hr = ((h % 24) + 24) % 24;
+    return `${hr % 12 === 0 ? 12 : hr % 12}${hr < 12 ? 'AM' : 'PM'}`;
+  };
   const scoreDelta = cur.score - prev.score;
   const activePct = pctChange(cur.totalSeconds, prev.totalSeconds);
   const rangeLabel = range === 'today' ? 'today' : `last ${rangeDays} days`;
@@ -199,6 +222,51 @@ const [activeSlice, setActiveSlice] = useState(null);
         </div>
       )}
 
+      {range === 'today' && (
+        <div className="panel" style={{ padding: 14 }}>
+          <div className="head-row">
+            <h3 style={{ margin: 0 }}>Active vs idle — today</h3>
+            <span className="muted">
+              {activeIdle.hasData
+                ? `${activeIdle.utilization}% of screen-on time was active`
+                : 'no data yet'}
+            </span>
+          </div>
+          {activeIdle.hasData ? (
+            <div className="summary-stats" style={{ marginTop: 10 }}>
+              <div>
+                <span className="label">Active</span>
+                <strong>{activeIdle.activeFormatted}</strong>
+                <div className="sub">tracked on a tab</div>
+              </div>
+              <div>
+                <span className="label">Idle / away</span>
+                <strong>{activeIdle.idleFormatted}</strong>
+                <div className="sub">screen on, no input</div>
+              </div>
+              <div>
+                <span className="label">Screen-on window</span>
+                <strong>{activeIdle.windowFormatted}</strong>
+                <div className="sub">
+                  {todayFirstLast.firstSeenFormatted} → {todayFirstLast.lastSeenFormatted}
+                </div>
+              </div>
+              <div>
+                <span className="label">Utilization</span>
+                <strong>{activeIdle.utilization}%</strong>
+                <div className="sub">active ÷ screen-on time</div>
+              </div>
+            </div>
+          ) : (
+            <p className="muted" style={{ marginTop: 8 }}>Nothing tracked yet today.</p>
+          )}
+          <p className="hint">
+            Idle means the screen was on but no input arrived for a while — useful for spotting
+            long breaks versus real focus.
+          </p>
+        </div>
+      )}
+
       {range === 'today' && <WakeSleepCard events={events} day={todayKey} />}
 
       <div className="panel">
@@ -260,6 +328,28 @@ const [activeSlice, setActiveSlice] = useState(null);
                   : `Active time ${activePct >= 0 ? '+' : ''}${activePct}% vs previous period`}
               </span>
             </div>
+            {peak && (
+              <div className="predict-strip">
+                <span className="predict-label">Peak focus hours</span>
+                <div className="predict-hours">
+                  {peak.profile.map((v, h) => {
+                    const max = Math.max(...peak.profile, 1);
+                    const inWin = h >= peak.start && h < peak.end;
+                    return (
+                      <span
+                        key={h}
+                        className={`predict-hour${inWin ? ' on' : ''}`}
+                        style={{ opacity: 0.25 + 0.75 * (v / max) }}
+                        title={`${hourLabel(h)} — ${formatDuration(Math.round(v))} productive-weighted`}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="predict-meta">
+                  {hourLabel(peak.start)}–{hourLabel(peak.end)}
+                </span>
+              </div>
+            )}
             <div className="hint">Auto-refreshes every 24 h — use Sync in the nav to refresh anytime.</div>
             <div className="hint" style={{ fontSize: 12, marginTop: 8 }}>
               Weekly goal: {Math.round((settings.focusTargetMinutes || 0) * 7)} min (daily × 7)
@@ -402,6 +492,23 @@ const [activeSlice, setActiveSlice] = useState(null);
         </div>
       )}
 
+      {correlations.length > 0 && (
+        <div className="panel">
+          <div className="head-row">
+            <h2>Patterns we noticed</h2>
+            <span className="muted">habits linked to your productive time · {rangeLabel}</span>
+          </div>
+          <div className="insights">
+            {correlations.map((c) => (
+              <div key={c.title} className={`insight ${c.kind}`}>
+                <div className="insight-title">{c.title}</div>
+                <div className="insight-detail">{c.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid">
         <div className="card">
           <h3>Events ({rangeLabel})</h3>
@@ -423,6 +530,16 @@ const [activeSlice, setActiveSlice] = useState(null);
           <h3>Deep focus sessions</h3>
           <div className="big">{deepCount}</div>
           <div className="sub">≥ 30 min on one site, no 5-min gaps</div>
+        </div>
+        <div className="card">
+          <h3>Focus depth ({rangeLabel})</h3>
+          <div className="big">
+            {attention.score}
+            <small style={{ fontSize: 13 }}>/100</small>
+          </div>
+          <div className="sub">
+            avg block {formatDuration(attention.avgBlockSeconds)} · {attention.switchesPerHour}/h switches
+          </div>
         </div>
         <div className="card">
           <h3>Focus streak</h3>

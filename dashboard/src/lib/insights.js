@@ -4,6 +4,7 @@ import {
   isProductiveCategory,
   isDistractingCategory,
 } from './categories.js';
+import { minutesFromHHMM } from './timetable.js';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOUR_LABELS = Array.from({ length: 24 }, (_, h) => {
@@ -55,7 +56,27 @@ export function domainTransitions(events, days, now = Date.now(), gapMaxMinutes 
     .slice(0, top);
 }
 
-export function detectAnomalies(events, now = Date.now()) {
+function classSlotMinutes(timetable, weekday) {
+  const entries = timetable?.entries || [];
+  return entries
+    .filter((e) => e.day === WEEKDAYS[weekday])
+    .map((e) => [minutesFromHHMM(e.startTime), minutesFromHHMM(e.endTime)])
+    .filter(([s, e]) => e > s);
+}
+
+function overlapMinutes(startMs, seconds, slots) {
+  if (!slots || slots.length === 0 || !startMs) return 0;
+  const d = new Date(startMs);
+  const startMin = d.getHours() * 60 + d.getMinutes();
+  const endMin = startMin + seconds / 60;
+  let total = 0;
+  for (const [s, e] of slots) {
+    total += Math.max(0, Math.min(endMin, e) - Math.max(startMin, s));
+  }
+  return total;
+}
+
+export function detectAnomalies(events, now = Date.now(), opts = {}) {
   const out = [];
   const keys = new Set(lastNDays(7, now));
   const recent = (events || []).filter((ev) => keys.has(dayKey(ev.ts)));
@@ -72,6 +93,8 @@ export function detectAnomalies(events, now = Date.now()) {
       kind: 'down',
       title: 'Late-night screen time (2–5 AM)',
       detail: `${Math.round(nightMinutes)} min in the last 7 days — sleep is part of the recovery`,
+      cost: nightMinutes,
+      costMinutes: 0,
     });
   }
 
@@ -84,14 +107,17 @@ export function detectAnomalies(events, now = Date.now()) {
   let runSeconds = 0;
   const runCats = new Set();
   const runs = [];
+  const finishRun = () => {
+    if (runStart !== null && runSeconds >= 3 * 3600) {
+      runs.push({ start: runStart, seconds: runSeconds, cats: [...runCats] });
+    }
+  };
   for (const ev of sorted) {
     const dur = Number(ev.durationSeconds) || 0;
     const ts = Number(ev.ts) || 0;
     if (dur <= 0) continue;
     if (!distracting.has(ev.category)) {
-      if (runStart !== null && runSeconds >= 3 * 3600) {
-        runs.push({ start: runStart, seconds: runSeconds, cats: [...runCats] });
-      }
+      finishRun();
       runStart = null;
       runSeconds = 0;
       runCats.clear();
@@ -107,9 +133,7 @@ export function detectAnomalies(events, now = Date.now()) {
       runEnd = Math.max(runEnd, ts + dur * 1000);
       runCats.add(ev.category);
     } else {
-      if (runSeconds >= 3 * 3600) {
-        runs.push({ start: runStart, seconds: runSeconds, cats: [...runCats] });
-      }
+      finishRun();
       runStart = ts;
       runEnd = ts + dur * 1000;
       runSeconds = dur;
@@ -117,17 +141,95 @@ export function detectAnomalies(events, now = Date.now()) {
       runCats.add(ev.category);
     }
   }
-  if (runStart !== null && runSeconds >= 3 * 3600) {
-    runs.push({ start: runStart, seconds: runSeconds, cats: [...runCats] });
-  }
+  finishRun();
   for (const run of runs) {
+    const costMin = opts.timetable
+      ? overlapMinutes(run.start, run.seconds, classSlotMinutes(opts.timetable, new Date(run.start).getDay()))
+      : 0;
     out.push({
       kind: 'down',
       title: `${formatDuration(run.seconds)} of uninterrupted distraction`,
-      detail: `One stretch of ${run.cats.join(' / ')} without a 5-min break`,
+      detail: `One stretch of ${run.cats.join(' / ')} without a 5-min break${
+        costMin > 0 ? ` · ~${Math.round(costMin)} min during scheduled classes` : ''
+      }`,
+      cost: run.seconds,
+      costMinutes: costMin,
     });
   }
+  if (opts.timetable) {
+    out.sort((a, b) => (b.costMinutes || 0) - (a.costMinutes || 0) || (b.cost || 0) - (a.cost || 0));
+  }
   return out.slice(0, 4);
+}
+
+export function buildCorrelations(events, days = 30, now = Date.now()) {
+  const keys = new Set(lastNDays(days, now));
+  const perDay = new Map();
+  for (const ev of events || []) {
+    const dur = Number(ev.durationSeconds) || 0;
+    const ts = Number(ev.ts) || 0;
+    if (dur <= 0 || !keys.has(dayKey(ts))) continue;
+    const key = dayKey(ts);
+    const rec =
+      perDay.get(key) || { morningDistraction: 0, lateNight: 0, morningStudy: 0, productive: 0 };
+    const h = new Date(ts).getHours();
+    const distract = isDistractingCategory(ev.category);
+    if (h >= 6 && h < 12 && distract) rec.morningDistraction += dur;
+    if (h >= 23 || h < 3) rec.lateNight += dur;
+    if (h >= 6 && h < 12 && isProductiveCategory(ev.category)) rec.morningStudy += dur;
+    rec.productive += dur * (CATEGORY_WEIGHTS[ev.category] ?? 0.2);
+    perDay.set(key, rec);
+  }
+  if (perDay.size < 6) return [];
+  const defs = [
+    {
+      signal: 'morningDistraction',
+      label: 'Days with 20+ min of morning distraction',
+      threshold: 20 * 60,
+      positiveTrigger: false,
+    },
+    {
+      signal: 'lateNight',
+      label: 'Days with 45+ min of late-night use',
+      threshold: 45 * 60,
+      positiveTrigger: false,
+    },
+    {
+      signal: 'morningStudy',
+      label: 'Days with 60+ min of morning study',
+      threshold: 60 * 60,
+      positiveTrigger: true,
+    },
+  ];
+  const out = [];
+  for (const def of defs) {
+    const high = [];
+    const low = [];
+    for (const rec of perDay.values()) {
+      (rec[def.signal] >= def.threshold ? high : low).push(rec.productive);
+    }
+    if (high.length < 2 || low.length < 2) continue;
+    const mean = (arr) => arr.reduce((a, v) => a + v, 0) / arr.length;
+    const meanHigh = mean(high);
+    const meanLow = mean(low);
+    if (meanLow <= 0) continue;
+    const pct = Math.round(((meanHigh - meanLow) / meanLow) * 100);
+    if (Math.abs(pct) < 10) continue;
+    const kind = def.positiveTrigger
+      ? pct > 0
+        ? 'up'
+        : 'down'
+      : pct < 0
+        ? 'down'
+        : 'info';
+    out.push({
+      kind,
+      pct,
+      title: `${def.label} → ${pct > 0 ? '+' : ''}${pct}% productive time`,
+      detail: `Avg ${formatDuration(meanHigh)} vs ${formatDuration(meanLow)} on other days · ${high.length} days vs ${low.length} days`,
+    });
+  }
+  return out.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct)).slice(0, 3);
 }
 
 export function buildInsights(events, days = 7, now = Date.now()) {
