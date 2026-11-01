@@ -46,6 +46,23 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+body.auth-tab {
+  width: 100%;
+  max-height: none;
+  min-height: 100vh;
+  overflow: auto;
+  align-items: center;
+}
+
+body.auth-tab > * {
+  width: 480px;
+  max-width: calc(100vw - 32px);
+}
+
+body.auth-tab > *:first-child {
+  margin-top: 24px;
+}
+
 header {
   display: flex;
   align-items: center;

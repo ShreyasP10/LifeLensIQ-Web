@@ -11,6 +11,8 @@ let cachedEvents = null;
 let cachedSettings = null;
 let currentTab = 'overview';
 
+const authTabMode = new URLSearchParams(location.search).get('auth') === 'google';
+
 const el = (id) => document.getElementById(id);
 
 function show(view) {
@@ -482,8 +484,34 @@ async function initTheme() {
   applyTheme(saved==='light'?'light':'dark');
 }
 
+async function runGoogleSignIn() {
+  const btn = el('google-signin-btn');
+  const label = btn?.querySelector('span');
+  el('auth-error')?.classList.add('hidden');
+  if (btn) btn.disabled = true;
+  if (label) label.textContent = 'Signing in…';
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    refresh();
+    if (authTabMode) {
+      const tab = await chrome.tabs.getCurrent();
+      if (tab && tab.id != null) chrome.tabs.remove(tab.id);
+    }
+  } catch (err) {
+    const ae = el('auth-error');
+    if (ae) {
+      ae.textContent = err.message || 'Google sign-in failed';
+      ae.classList.remove('hidden');
+    }
+    if (btn) btn.disabled = false;
+    if (label) label.textContent = 'Continue with Google';
+  }
+}
+
 async function main() {
   await initTheme();
+  if (authTabMode) document.body.classList.add('auth-tab');
   initTabs();
   el('theme-btn')?.addEventListener('click', async () => {
     const next = document.documentElement.dataset.theme==='light'?'dark':'light';
@@ -502,8 +530,12 @@ async function main() {
     try { await signInWithEmailAndPassword(auth, el('email').value.trim(), el('password').value); loginForm.reset(); refresh(); } catch (err) { const ae=el('auth-error'); if(ae){ ae.textContent=err.message||'Sign-in failed'; ae.classList.remove('hidden'); } }
   });
   el('google-signin-btn')?.addEventListener('click', async () => {
-    el('auth-error')?.classList.add('hidden');
-    try { const provider=new GoogleAuthProvider(); await signInWithPopup(auth, provider); refresh(); } catch (err) { const ae=el('auth-error'); if(ae){ ae.textContent=err.message||'Google sign-in failed'; ae.classList.remove('hidden'); } }
+    if (authTabMode) {
+      runGoogleSignIn();
+      return;
+    }
+    await chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html?auth=google') });
+    window.close();
   });
   el('logout-btn')?.addEventListener('click', async () => { await signOut(auth).catch(()=>{}); refresh(); });
   el('signout-btn')?.addEventListener('click', async () => { await signOut(auth).catch(()=>{}); refresh(); });
@@ -554,6 +586,7 @@ async function main() {
   initExportTab(); loadManualTab();
   auth.onAuthStateChanged(() => refresh());
   refresh(); await initPomodoro(); await refreshFocus(); renderWeeklyNudge();
+  if (authTabMode) runGoogleSignIn();
   liveTick = setInterval(()=>{ refresh(); renderWeeklyNudge(); },30000);
 }
 

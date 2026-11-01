@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "LifeLensIQ Tracker",
-  "version": "0.6.5",
+  "version": "0.6.6",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0HQhKAtSTJQ3fNetEezqO9bHjzt6LdRgOIm5QMEU9hqhw3sAcnCc037TE9QogseofbuEudy98YjEc/SoHMDW/Gg2VM7w82WPCXrc6mUvOeRqsUff5wCX1LN6kkkpAGvU7H2d6dYw76S2hghEGbObk74Vwzqbl+IbgWpqFFS5h6BsAOPbd3HnI1BMVvDfhNl8Eql7R3/pwVxh5uEA6200oLSrxt4HeK4wwPghiQHFb9WfmPeDE1yMcmK3fzqorouK3avxxdabAYymdwlHcWEr9EbS1L3Pqdox2bXHawPS11TGZVL8AdeUtpppGkxV10iRCprdSa9XC9rt9wAROOoOkQIDAQAB",
   "description": "Passive browser activity tracker for LifeLensIQ personal analytics (prototype). Focus mode, pomodoro, YouTube distraction-free.",
   "permissions": ["storage", "tabs", "idle", "alarms", "notifications"],
   "host_permissions": ["<all_urls>"],
