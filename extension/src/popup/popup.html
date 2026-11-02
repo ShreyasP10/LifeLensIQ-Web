@@ -47,6 +47,10 @@
       <input id="email" type="email" placeholder="email@example.com" autocomplete="username" required />
       <input id="password" type="password" placeholder="password" autocomplete="current-password" required />
       <button type="submit" id="signin-btn">Sign in with email</button>
+      <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" id="toggle-auth-mode-btn" style="background: none; border: none; color: #4285F4; font-size: 12px; cursor: pointer; text-decoration: underline;">Need an account? Sign up</button>
+        <button type="button" id="forgot-password-btn" style="background: none; border: none; color: var(--muted, #888); font-size: 12px; cursor: pointer; text-decoration: underline;">Set/Reset password</button>
+      </div>
     </form>
     <p id="auth-error" class="error hidden"></p>
   </section>

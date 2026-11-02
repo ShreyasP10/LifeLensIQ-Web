@@ -1,6 +1,15 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth as getAuthWebExtension, onAuthStateChanged } from 'firebase/auth/web-extension';
-import { getAuth as getAuthRegular, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import {
+  getAuth as getAuthWebExtension,
+  onAuthStateChanged,
+  signInWithCredential,
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+} from 'firebase/auth/web-extension';
+import { getAuth as getAuthRegular, signInWithPopup, browserPopupRedirectResolver } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { FIREBASE_CONFIG, isConfigured } from './firebase-config.js';
 
@@ -35,7 +44,17 @@ export function getRegularAuth() {
   return getAuthRegular(app);
 }
 
-export { GoogleAuthProvider, signInWithPopup };
+export {
+  GoogleAuthProvider,
+  signInWithPopup,
+  browserPopupRedirectResolver,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+  onAuthStateChanged,
+};
 
 export async function initAuth(authInstance) {
   await authInstance.authStateReady();

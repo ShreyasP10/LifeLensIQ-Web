@@ -1,6 +1,15 @@
-import { initFirebase, isFirebaseConfigured, getFirebase, GoogleAuthProvider, signInWithPopup } from '../shared/firebase.js';
+import {
+  initFirebase,
+  isFirebaseConfigured,
+  getFirebase,
+  GoogleAuthProvider,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+} from '../shared/firebase.js';
 import { collection, query, where, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, orderBy, limit } from 'firebase/firestore';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth/web-extension';
 import { categoryColor, CATEGORY_KEYS, CATEGORY_WEIGHTS } from '../shared/categories.js';
 import { DASHBOARD_URL } from '../shared/firebase-config.js';
 
@@ -484,26 +493,70 @@ async function initTheme() {
   applyTheme(saved==='light'?'light':'dark');
 }
 
+let authMode = 'login';
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const toggleBtn = el('toggle-auth-mode-btn');
+  const submitBtn = el('signin-btn');
+  const forgotBtn = el('forgot-password-btn');
+  const ae = el('auth-error');
+  if (ae) ae.classList.add('hidden');
+
+  if (mode === 'signup') {
+    if (toggleBtn) toggleBtn.textContent = 'Already have an account? Sign in';
+    if (submitBtn) submitBtn.textContent = 'Create account with email';
+    if (forgotBtn) forgotBtn.style.display = 'none';
+  } else {
+    if (toggleBtn) toggleBtn.textContent = 'Need an account? Sign up';
+    if (submitBtn) submitBtn.textContent = 'Sign in with email';
+    if (forgotBtn) forgotBtn.style.display = '';
+  }
+}
+
 async function runGoogleSignIn() {
   const btn = el('google-signin-btn');
   const label = btn?.querySelector('span');
-  el('auth-error')?.classList.add('hidden');
+  const ae = el('auth-error');
+  if (ae) {
+    ae.classList.add('hidden');
+    ae.style.color = '';
+  }
   if (btn) btn.disabled = true;
   if (label) label.textContent = 'Signing in…';
   try {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    const token = await new Promise((resolve, reject) => {
+      chrome.identity.getAuthToken({ interactive: true }, (authToken) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else if (!authToken) {
+          reject(new Error('Google sign-in was cancelled or returned no token.'));
+        } else {
+          resolve(authToken);
+        }
+      });
+    });
+
+    const credential = GoogleAuthProvider.credential(null, token);
+    await signInWithCredential(auth, credential);
     refresh();
     if (authTabMode) {
       const tab = await chrome.tabs.getCurrent();
       if (tab && tab.id != null) chrome.tabs.remove(tab.id);
     }
   } catch (err) {
+    console.error('Google sign-in failed:', err);
     const ae = el('auth-error');
     if (ae) {
-      ae.textContent = err.message || 'Google sign-in failed';
+      let msg = err.message || 'Google sign-in failed';
+      if (msg.includes('OAuth2 client id is invalid') || msg.includes('bad client id') || msg.includes('Bad client id')) {
+        msg = 'Google OAuth Client ID error: In Google Cloud Console, ensure Client ID has Application type "Chrome extension" and Item ID "ekbpbhohopilcigecminlohjemoopabc".';
+      }
+      ae.textContent = msg;
       ae.classList.remove('hidden');
+      ae.style.color = '#ef4444';
     }
+  } finally {
     if (btn) btn.disabled = false;
     if (label) label.textContent = 'Continue with Google';
   }
@@ -524,18 +577,77 @@ async function main() {
   }
   const fb = initFirebase(); auth = fb.auth; db = fb.db;
 
-  const loginForm = el('login-form');
-  loginForm?.addEventListener('submit', async (e) => {
-    e.preventDefault(); el('auth-error')?.classList.add('hidden');
-    try { await signInWithEmailAndPassword(auth, el('email').value.trim(), el('password').value); loginForm.reset(); refresh(); } catch (err) { const ae=el('auth-error'); if(ae){ ae.textContent=err.message||'Sign-in failed'; ae.classList.remove('hidden'); } }
+  // Auth mode toggle (Sign in <-> Sign up)
+  el('toggle-auth-mode-btn')?.addEventListener('click', () => {
+    setAuthMode(authMode === 'login' ? 'signup' : 'login');
   });
-  el('google-signin-btn')?.addEventListener('click', async () => {
-    if (authTabMode) {
-      runGoogleSignIn();
+
+  // Forgot / Reset password
+  el('forgot-password-btn')?.addEventListener('click', async () => {
+    const emailVal = el('email')?.value.trim();
+    const ae = el('auth-error');
+    if (!emailVal) {
+      if (ae) {
+        ae.textContent = 'Please enter your email address in the field above first.';
+        ae.classList.remove('hidden');
+        ae.style.color = '#ef4444';
+      }
       return;
     }
-    await chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html?auth=google') });
-    window.close();
+    try {
+      await sendPasswordResetEmail(auth, emailVal);
+      if (ae) {
+        ae.textContent = `Password reset link sent to ${emailVal}! Please check your inbox and spam folder.`;
+        ae.classList.remove('hidden');
+        ae.style.color = '#10b981';
+      }
+    } catch (err) {
+      if (ae) {
+        ae.textContent = err.message || 'Failed to send password reset email';
+        ae.classList.remove('hidden');
+        ae.style.color = '#ef4444';
+      }
+    }
+  });
+
+  const loginForm = el('login-form');
+  loginForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ae = el('auth-error');
+    if (ae) {
+      ae.classList.add('hidden');
+      ae.style.color = '';
+    }
+    const emailVal = el('email').value.trim();
+    const passVal = el('password').value;
+    try {
+      if (authMode === 'signup') {
+        await createUserWithEmailAndPassword(auth, emailVal, passVal);
+      } else {
+        await signInWithEmailAndPassword(auth, emailVal, passVal);
+      }
+      loginForm.reset();
+      refresh();
+      if (authTabMode) {
+        const tab = await chrome.tabs.getCurrent();
+        if (tab && tab.id != null) chrome.tabs.remove(tab.id);
+      }
+    } catch (err) {
+      const ae = el('auth-error');
+      if (ae) {
+        let msg = err.message || 'Authentication failed';
+        if (err.code === 'auth/invalid-credential') {
+          msg = 'Invalid credentials. If your account was originally registered with Google, use "Continue with Google", or reset your password using the link below.';
+        }
+        ae.textContent = msg;
+        ae.classList.remove('hidden');
+        ae.style.color = '#ef4444';
+      }
+    }
+  });
+
+  el('google-signin-btn')?.addEventListener('click', () => {
+    runGoogleSignIn();
   });
   el('logout-btn')?.addEventListener('click', async () => { await signOut(auth).catch(()=>{}); refresh(); });
   el('signout-btn')?.addEventListener('click', async () => { await signOut(auth).catch(()=>{}); refresh(); });
