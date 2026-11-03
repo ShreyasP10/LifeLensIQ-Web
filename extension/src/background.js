@@ -391,6 +391,14 @@ async function syncBuffer() {
   }
 }
 
+function broadcastSyncStatus(pending = 0) {
+  try {
+    chrome.runtime
+      .sendMessage({ type: 'syncStatus', pending })
+      .catch(() => {});
+  } catch {}
+}
+
 /* ---------------- init & listeners ---------------- */
 
 let initPromise = null;
