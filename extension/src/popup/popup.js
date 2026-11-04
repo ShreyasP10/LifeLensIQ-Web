@@ -647,6 +647,11 @@ async function main() {
   });
 
   el('google-signin-btn')?.addEventListener('click', () => {
+    if (!authTabMode) {
+      chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html?auth=google') });
+      window.close();
+      return;
+    }
     runGoogleSignIn();
   });
   el('logout-btn')?.addEventListener('click', async () => { await signOut(auth).catch(()=>{}); refresh(); });
