@@ -180,7 +180,8 @@ async function _flushSegment() {
     last.domain === ev.domain &&
     last.eventType === ev.eventType &&
     last.category === ev.category &&
-    last.tabId === ev.tabId && // ← ADD tabId check
+    last.tabId === ev.tabId &&
+    last.userId === ev.userId &&
     last.endTs &&
     ev.ts >= last.ts &&
     ev.ts - last.endTs <= MERGE_GAP_MS;
@@ -340,8 +341,8 @@ async function recordPomodoro(minutes, cycles) {
 
 async function syncBuffer() {
   if (!currentUser || !db) return;
-  const buffer = await getBuffer();
-  if (!buffer.length) {
+  const bufferAll = await getBuffer();
+  if (!bufferAll.length) {
     syncFailures = 0;
     return;
   }
@@ -354,6 +355,14 @@ async function syncBuffer() {
   const backoffMs = Math.min(syncFailures, 5) * 60 * 1000;
   if (Date.now() - lastSyncAttempt < backoffMs) return;
   lastSyncAttempt = Date.now();
+
+  // Never write events captured under another account (account switched
+  // locally) to the current user's Firestore path — drop them.
+  let buffer = bufferAll.filter((e) => !e.userId || e.userId === currentUser.uid);
+  if (buffer.length !== bufferAll.length) {
+    await safeSetBuffer(buffer);
+    broadcastSyncStatus(buffer.length);
+  }
 
   const chunks = [];
   for (let i = 0; i < buffer.length; i += BATCH_SIZE) {

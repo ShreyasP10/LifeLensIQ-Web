@@ -71,6 +71,11 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function localDayKey(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function startOf3amDay(d = new Date()) {
   const x = new Date(d);
   if (x.getHours() < 3) x.setDate(x.getDate() - 1);
@@ -179,6 +184,7 @@ function switchTab(name) {
   if (name === 'settings') loadSettingsTab();
   if (name === 'anomalies') loadAnomalies();
   if (name === 'leaderboard') loadLeaderboard();
+  if (name === 'manual') loadManualTab();
 }
 
 function initTabs() {
@@ -237,18 +243,21 @@ function pomoFinish() {
 }
 function pomoToggle() {
   if (pomo.phase==='running') { clearInterval(pomoTick); pomoTick=null; pomo.phase='paused'; savePomo(); }
-  else { pomo.phase='running'; savePomo(); pomoTick=setInterval(()=>{ pomo.remaining-=1; if(pomo.remaining<=0){clearInterval(pomoTick);pomoTick=null;pomoFinish();return;} savePomo(); pomoRender(); },1000); }
+  else { pomo.phase='running'; savePomo(); startPomoTick(); }
   pomoRender();
+}
+function startPomoTick() {
+  if (pomoTick) return;
+  pomoTick = setInterval(()=>{ pomo.remaining-=1; if(pomo.remaining<=0){clearInterval(pomoTick);pomoTick=null;pomoFinish();return;} savePomo(); pomoRender(); },1000);
 }
 async function initPomodoro() {
   const { ['lifelensiq_pomodoro']: saved } = await chrome.storage.local.get('lifelensiq_pomodoro');
   if (saved) {
     pomo = { ...POMO_DEFAULTS, ...saved };
-    if (pomo.phase==='running') {
-      const elapsed = Math.round((Date.now()-(saved.lastTs||Date.now()))/1000);
-      pomo.remaining = Math.max(0, pomo.remaining - elapsed);
-      if (pomo.remaining<=0){ pomo.phase='idle'; pomo.remaining=pomo.minutes*60; savePomo(); }
-    }
+    // The timer lives in the popup context, so it effectively pauses while the
+    // popup is closed — continue from the saved remaining instead of
+    // subtracting wall-clock time (which would finish the pomodoro early).
+    if (pomo.phase==='running') startPomoTick();
   }
   pomoRender();
 }
@@ -325,7 +334,7 @@ async function loadTrends() {
   // simple bar for daily
   const canvas = el('trends-chart'); if (canvas) {
     const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
-    const days = {}; filtered.forEach(ev=>{ const key=new Date(ev.ts).toISOString().split('T')[0]; days[key]=(days[key]||0)+(ev.durationSeconds||0); });
+    const days = {}; filtered.forEach(ev=>{ const key=localDayKey(ev.ts); days[key]=(days[key]||0)+(ev.durationSeconds||0); });
     const vals = Object.values(days); const max = Math.max(...vals,1);
     ctx.fillStyle = '#22d3ee'; const barW = canvas.width / Math.max(vals.length,1);
     vals.forEach((v,i)=>{ const h=(v/max)*160; ctx.fillRect(i*barW+2, 200-h, barW-4, h); });
@@ -338,14 +347,14 @@ async function renderHeatmap() {
   const container = el('heatmap-container'); if (!container) return;
   const days = parseInt(el('heatmap-days')?.value||'90');
   const evs = await fetchEvents(2000);
-  const map = {}; evs.forEach(ev=>{ const k=new Date(ev.ts).toISOString().split('T')[0]; map[k]=(map[k]||0)+(ev.durationSeconds||0); });
+  const map = {}; evs.forEach(ev=>{ const k=localDayKey(ev.ts); map[k]=(map[k]||0)+(ev.durationSeconds||0); });
   const today = startOf3amDay(new Date());
   let html = '<div class="heat-grid" style="display:grid;grid-template-columns:repeat(7,14px);gap:3px;">';
   const weekdays = ['S','M','T','W','T','F','S'];
   weekdays.forEach(d=> html+=`<div style="font-size:9px;color:var(--muted);text-align:center;">${d}</div>`);
   for (let i=days-1;i>=0;i--) {
     const d=new Date(today); d.setDate(d.getDate()-i);
-    const key=d.toISOString().split('T')[0];
+    const key=localDayKey(d.getTime());
     const sec = map[key]||0;
     const intensity = sec===0?0: sec<1800?1: sec<3600?2: sec<7200?3:4;
     const bg = ['var(--panel-2)','#0e4429','#006d32','#26a641','#39d353'][intensity];
@@ -395,27 +404,30 @@ async function loadSettingsTab() {
 
 /* ---------------- Manual ---------------- */
 async function loadManualTab() {
-  const form = el('manual-form'); if (!form || form.dataset.bound) return; form.dataset.bound='1';
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const date = el('manual-date').value;
-    const start = el('manual-start').value;
-    const end = el('manual-end').value;
-    const title = el('manual-title').value.trim();
-    const domain = el('manual-domain').value.trim().toLowerCase().replace(/^www\./,'');
-    const category = el('manual-category').value;
-    if (!date||!start||!end||!domain) return alert('Fill all required fields');
-    const startTs = new Date(`${date}T${start}`).getTime();
-    const endTs = new Date(`${date}T${end}`).getTime();
-    if (isNaN(startTs)||isNaN(endTs)||endTs<=startTs) return alert('Invalid time');
-    const durationSeconds = Math.round((endTs-startTs)/1000);
-    const fb=getFirebase(); const eventId = crypto.randomUUID();
-    await setDoc(doc(fb.db,'users',fb.auth.currentUser.uid,'events',eventId), {
-      id:eventId, eventId, userId: fb.auth.currentUser.uid, ts: startTs, timestamp: startTs, endTs, durationSeconds, domain, path:'/manual', title: title||domain, category, eventType:'STUDY_SESSION', metadata:{correction:true}, device:'web', deviceId:'web', schemaVersion:1
+  const form = el('manual-form');
+  if (!form || !form.dataset.bound) {
+    if (form) form.dataset.bound='1';
+    form?.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const date = el('manual-date').value;
+      const start = el('manual-start').value;
+      const end = el('manual-end').value;
+      const title = el('manual-title').value.trim();
+      const domain = el('manual-domain').value.trim().toLowerCase().replace(/^www\./,'');
+      const category = el('manual-category').value;
+      if (!date||!start||!end||!domain) return alert('Fill all required fields');
+      const startTs = new Date(`${date}T${start}`).getTime();
+      const endTs = new Date(`${date}T${end}`).getTime();
+      if (isNaN(startTs)||isNaN(endTs)||endTs<=startTs) return alert('Invalid time');
+      const durationSeconds = Math.round((endTs-startTs)/1000);
+      const fb=getFirebase(); const eventId = crypto.randomUUID();
+      await setDoc(doc(fb.db,'users',fb.auth.currentUser.uid,'events',eventId), {
+        id:eventId, eventId, userId: fb.auth.currentUser.uid, ts: startTs, timestamp: startTs, endTs, durationSeconds, domain, path:'/manual', title: title||domain, category, eventType:'STUDY_SESSION', metadata:{correction:true}, device:'web', deviceId:'web', schemaVersion:1
+      });
+      alert('Manual entry saved');
+      form.reset(); loadManualTab();
     });
-    alert('Manual entry saved');
-    form.reset(); loadManualTab();
-  });
+  }
   // recent manual
   const fb=getFirebase(); if (!fb.db||!fb.auth.currentUser) return;
   const q = query(collection(fb.db,'users',fb.auth.currentUser.uid,'events'), where('device','==','web'), orderBy('ts','desc'), limit(20));
@@ -464,11 +476,11 @@ async function loadAnomalies() {
   // simple anomaly: long distraction >3h or late night 2-5am
   const anomalies=[];
   const byDay={};
-  evs.forEach(ev=>{ const k=new Date(ev.ts).toISOString().split('T')[0]; if(!byDay[k]) byDay[k]=[]; byDay[k].push(ev); });
+  evs.forEach(ev=>{ const k=localDayKey(ev.ts); if(!byDay[k]) byDay[k]=[]; byDay[k].push(ev); });
   Object.entries(byDay).forEach(([day, dayEvs])=>{
     const distract = dayEvs.filter(ev=> ev.category==='Entertainment'||ev.category==='Timepass').reduce((s,e)=>s+(e.durationSeconds||0),0);
     if (distract > 3*3600) anomalies.push({ title:`Long distraction on ${day}`, detail:`${formatDuration(distract)} of Entertainment/Timepass` });
-    const late = dayEvs.filter(ev=>{ const h=new Date(ev.ts).getHours(); return h>=2 && h<=5; }).reduce((s,e)=>s+(e.durationSeconds||0),0);
+    const late = dayEvs.filter(ev=>{ const h=new Date(ev.ts).getHours(); return h>=2 && h<5; }).reduce((s,e)=>s+(e.durationSeconds||0),0);
     if (late> 1800) anomalies.push({ title:`Late-night activity ${day}`, detail:`${formatDuration(late)} between 2-5 AM` });
   });
   if (!anomalies.length) list.innerHTML='<li class="muted">No anomalies in recent data.</li>';

@@ -1,4 +1,5 @@
 import { initFirebase, isFirebaseConfigured } from '../shared/firebase.js';
+import { onAuthStateChanged } from 'firebase/auth/web-extension';
 import { getFirestore, getDoc, setDoc, doc } from 'firebase/firestore';
 import { CATEGORY_KEYS } from '../shared/categories.js';
 
@@ -113,15 +114,16 @@ async function main() {
     const fb = initFirebase();
     auth = fb.auth;
     db = fb.db;
-    if (auth.currentUser) {
-      const ref = doc(db, 'users', auth.currentUser.uid, 'settings', 'profile');
+    onAuthStateChanged(auth, async (user) => {
+      if (!user || !db) return;
+      const ref = doc(db, 'users', user.uid, 'settings', 'profile');
       const snap = await getDoc(ref).catch(() => null);
       if (snap && snap.exists() && snap.data().domainCategories) {
         overrides = { ...snap.data().domainCategories };
         await persistLocal(overrides);
         render(overrides);
       }
-    }
+    });
   }
 }
 
