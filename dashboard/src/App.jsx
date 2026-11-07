@@ -310,7 +310,7 @@ function Dashboard({ user }) {
         )}
         {tab === 'trends' && <Trends events={filteredEvents} />}
         {tab === 'timeline' && <Timeline events={filteredEvents} onDelete={deleteEvent} />}
-        {tab === 'export' && <ExportPanel user={user} deviceFilter={deviceFilter} />}
+        {tab === 'export' && <ExportPanel user={user} />}
         {tab === 'leaderboard' && <Leaderboard user={user} events={filteredEvents} />}
         {tab === 'log' && <ManualEntry user={user} />}
         {tab === 'settings' && <SettingsPage user={user} settings={settings} events={events || []} />}

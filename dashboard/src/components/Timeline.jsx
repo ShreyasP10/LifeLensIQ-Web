@@ -77,7 +77,7 @@ export default function Timeline({ events, onDelete }) {
         <input
           className="search-input"
           type="search"
-          placeholder="Search domain, title or path…"
+          placeholder="Search any website or title…"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -120,7 +120,7 @@ export default function Timeline({ events, onDelete }) {
           <span><b>First opened:</b> {dayFirstLast.firstSeenFormatted}</span>
           <span><b>Last seen:</b> {dayFirstLast.lastSeenFormatted}</span>
           <span><b>Sessions:</b> {dayFirstLast.count} · {dayFirstLast.durationFormatted}</span>
-          <span className="muted">Day 03:00 → 03:00</span>
+          <span className="muted">A day runs 3 AM to 3 AM</span>
         </div>
       </div>
 

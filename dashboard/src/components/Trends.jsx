@@ -109,28 +109,28 @@ export default function Trends({ events }) {
             <div className="card">
               <h3>Productive</h3>
               <div className="big">{fmtHours(totals.study)}</div>
-              <div className="sub">productive categories</div>
+              <div className="sub">study and focus time</div>
             </div>
           )}
           {totals.steps > 0 && (
             <div className="card">
-              <h3>Steps (app)</h3>
+              <h3>Steps</h3>
               <div className="big">{fmtSteps(totals.steps)}</div>
-              <div className="sub">from STEPS events</div>
+              <div className="sub">counted by your phone</div>
             </div>
           )}
           {totals.shorts > 0 && (
             <div className="card">
               <h3>Shorts</h3>
               <div className="big">{fmtHours(totals.shorts)}</div>
-              <div className="sub">short-form video</div>
+              <div className="sub">short videos</div>
             </div>
           )}
           {totals.pickups > 0 && (
             <div className="card">
               <h3>Pickups</h3>
               <div className="big">{totals.pickups}</div>
-              <div className="sub">screen-on events</div>
+              <div className="sub">times you picked up your screen</div>
             </div>
           )}
         </div>
@@ -172,10 +172,10 @@ export default function Trends({ events }) {
               <div className="row"><span>Charge sessions</span><strong>{charging.sessions}</strong></div>
               <div className="row"><span>Avg session</span><strong>{formatDuration(charging.avgMinutes * 60)}</strong></div>
               <div className="row">
-                <span>Overnight charges (21:00–06:00)</span>
+                <span>Overnight charges (9 PM – 6 AM)</span>
                 <strong style={{ color: charging.overnight > 0 ? 'var(--ok)' : 'var(--muted)' }}>{charging.overnight}</strong>
               </div>
-              <div className="sub">from CHARGE_START / CHARGE_END events</div>
+              <div className="sub">charging on your phone</div>
             </div>
           )}
         </div>

@@ -16,17 +16,13 @@ import { pad } from '../lib/stats.js';
 const PAGE = 1000;
 const MAX_TOTAL = 100000;
 
-export default function ExportPanel({ user, deviceFilter = 'all' }) {
+export default function ExportPanel({ user }) {
   const [from, setFrom] = useState(defaultRange()[0]);
   const [to, setTo] = useState(defaultRange()[1]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
-
-  const eventDevice = (ev) =>
-    ev.deviceId ||
-    (ev.device && ev.device !== 'web' && ev.device !== 'extension' ? ev.device : 'web');
 
   function defaultRange() {
     const end = new Date();
@@ -61,9 +57,7 @@ export default function ExportPanel({ user, deviceFilter = 'all' }) {
         const snap = await getDocs(query(collection(db, 'users', user.uid, 'events'), ...constraints));
         if (snap.empty || snap.docs.length === 0) break;
         for (const d of snap.docs) {
-          const ev = d.data();
-          if (deviceFilter !== 'all' && eventDevice(ev) !== deviceFilter) continue;
-          out.push(ev);
+          out.push(d.data());
         }
         lastDoc = snap.docs[snap.docs.length - 1];
         setProgress(`page ${page} · ${out.length} events…`);
@@ -120,11 +114,9 @@ export default function ExportPanel({ user, deviceFilter = 'all' }) {
 
   return (
     <div className="panel">
-      <h2>Export Data (for your ML pipeline)</h2>
+      <h2>Export data</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
-        Raw events export directly to CSV/JSON with epoch-ms (UTC) timestamps — ready for
-        <code> pandas.read_csv()</code>. Fetches in pages of {PAGE} (up to {MAX_TOTAL.toLocaleString()} events per range).
-        See <code>docs/09_Firestore_Schema.md §7</code>.
+        Save your records as files — open them in Excel or give them to any data program.
       </p>
 
       <div className="form-row">
@@ -137,7 +129,7 @@ export default function ExportPanel({ user, deviceFilter = 'all' }) {
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
         <button className="secondary" onClick={fetchAll} disabled={busy}>
-          {busy ? 'Fetching…' : result ? 'Refetch records' : 'Fetch records'}
+          {busy ? 'Fetching…' : result ? 'Get records again' : 'Get records'}
         </button>
       </div>
 
@@ -150,29 +142,27 @@ export default function ExportPanel({ user, deviceFilter = 'all' }) {
 
       {result && (
         <p className="hint">
-          {result.events.length} events{result.truncated ? ` (cap reached at ${MAX_TOTAL.toLocaleString()})` : ''} in range.
+          {result.events.length} records{result.truncated ? ' (stopped at 100,000 to stay fast)' : ''} in range.
         </p>
       )}
       {error && <p className="error">{error}</p>}
 
       <div className="btn-row">
-        <button onClick={exportCSV} disabled={busy}>Download CSV (raw events)</button>
-        <button onClick={exportJSON} disabled={busy}>Download JSON (raw events)</button>
-        <button onClick={exportStats} disabled={busy}>Download JSON (aggregated stats)</button>
+        <button onClick={exportCSV} disabled={busy}>Download spreadsheet (CSV)</button>
+        <button onClick={exportJSON} disabled={busy}>Download data file (JSON)</button>
+        <button onClick={exportStats} disabled={busy}>Download summary (JSON)</button>
       </div>
       <div className="btn-row" style={{ marginTop: 8 }}>
         <button className="secondary" onClick={exportML} disabled={busy}>
-          Download ML dataset (train / val / test CSV + manifest)
+          Download study dataset (CSV files)
         </button>
       </div>
       <p className="hint">
-        ML dataset: chronologically engineered rows (hour, day_of_week, day_segment, duration,
-        gap_seconds, prev_category, is_productive…), split 70/15/15 in time order to avoid
-        temporal leakage. The manifest JSON documents the schema and class distribution per split.
+        Study dataset: your records turned into ready-to-learn rows and split into three files for
+        building or checking a personal prediction model.
       </p>
       <p className="hint">
-        Note: if a date range query fails, create the suggested composite index (ts asc, ts desc)
-        in the Firebase console — the link appears in the error.
+        If nothing loads, follow the one-time setup link shown in the error message.
       </p>
     </div>
   );

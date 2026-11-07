@@ -56,10 +56,10 @@ export default function Leaderboard({ user, events }) {
 
   return (
     <div className="panel">
-      <h2>Leaderboard (score only)</h2>
+      <h2>Leaderboard</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
-        Opt-in. Publishing your score reveals nothing about your actual activity — just one number
-        (0–100) computed from the last 7 days.
+        Sharing is optional. Only one number (0–100) from your last 7 days is visible — never
+        your browsing.
       </p>
 
       <div className="btn-row">
@@ -83,7 +83,7 @@ export default function Leaderboard({ user, events }) {
 
       <table style={{ marginTop: 14 }}>
         <thead>
-          <tr><th>#</th><th>User</th><th>Score</th><th>Active (7d)</th><th>Days with data</th></tr>
+          <tr><th>#</th><th>User</th><th>Score</th><th>Active time (7 days)</th><th>Days with data</th></tr>
         </thead>
         <tbody>
           {visible.map((r, i) => (

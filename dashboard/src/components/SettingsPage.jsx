@@ -138,7 +138,7 @@ export default function SettingsPage({ user, settings, events }) {
       await deleteDoc(doc(db, 'users', user.uid, 'settings', 'profile')).catch(() => {});
       await deleteDoc(doc(db, 'users', user.uid, 'timetable', 'data')).catch(() => {});
       await deleteDoc(doc(db, 'leaderboard', user.uid)).catch(() => {});
-      flash('All your data has been deleted from Firestore.');
+      flash('All your data has been deleted.');
     } catch (err) {
       flash('Delete failed: ' + err.message, false);
     } finally {
@@ -299,30 +299,29 @@ export default function SettingsPage({ user, settings, events }) {
       <div className="panel">
         <h2>Sync health</h2>
         <p className="muted" style={{ marginBottom: 10 }}>
-          All devices (Android app, Chrome extension, manual web entries) share one{' '}
-          <code>users/&#123;uid&#125;/events</code> collection. Events are upserted by{' '}
-          <code>eventId</code>, so duplicates should not exist.
+          Your phone app, browser extension and anything you log by hand all save into one shared
+          space, so everything appears together on every screen.
         </p>
-        <div className="row"><span>Total events</span><strong>{devices.total}</strong></div>
+        <div className="row"><span>Total records</span><strong>{devices.total}</strong></div>
         {devices.list.map(([dev, rec]) => (
           <div className="row" key={dev}>
             <span>
-              <span className="chip">{dev}</span> {rec.count} events
+              <span className="chip">{dev}</span> {rec.count} records
             </span>
             <strong>{rec.lastTs ? `last seen ${formatTime(rec.lastTs)}` : 'never'}</strong>
           </div>
         ))}
         <div className="row">
-          <span>Legacy events (no eventId — written before the shared contract)</span>
+          <span>Older records (saved before record IDs existed)</span>
           <strong>{devices.legacy}</strong>
         </div>
         <div className="row">
-          <span>Duplicate eventIds in the last 10k events</span>
+          <span>Doubled records in your recent data (should be 0)</span>
           <strong style={{ color: devices.dupes > 0 ? 'var(--danger)' : 'var(--ok)' }}>
             {devices.dupes}
           </strong>
         </div>
-        <p className="hint">Web → app appears after the app's next sync (≤ 15 min). App → web is live within seconds.</p>
+        <p className="hint">Phone updates arrive every 15 minutes; browser updates show within seconds.</p>
       </div>
 
       <div className="panel">
@@ -337,9 +336,8 @@ export default function SettingsPage({ user, settings, events }) {
       <div className="panel" style={{ borderColor: 'var(--danger)' }}>
         <h2 style={{ color: 'var(--danger)' }}>Danger zone</h2>
         <p className="muted" style={{ marginBottom: 10 }}>
-          Deletes every event, settings, timetable and leaderboard entry for this account from
-          Firestore. This cannot be undone. Local extension buffer is untouched (it will re-sync
-          unless you also clear it in the extension).
+          Permanently deletes everything stored online for your account — records, settings,
+          timetable and leaderboard score. This cannot be undone.
         </p>
         {!confirmDelete ? (
           <button className="danger" onClick={() => setConfirmDelete(true)}>Delete all my data…</button>
