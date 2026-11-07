@@ -301,20 +301,6 @@ function Dashboard({ user }) {
       )}
 
       <main>
-        <div className="device-filter">
-          {deviceOptions.map((id) => (
-            <button
-              key={id}
-              className={deviceFilter === id ? 'active' : ''}
-              onClick={() => setDeviceFilter(id)}
-              title="Filter every view by the device that wrote the events"
-            >
-              {deviceLabel(id)}
-            </button>
-          ))}
-          <span className="muted" style={{ fontSize: 12 }}>device source filter</span>
-        </div>
-
         {tab === 'overview' && (
           <Overview
             user={user}
