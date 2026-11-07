@@ -46,6 +46,8 @@ export default function Trends({ events }) {
     return t;
   }, [series]);
 
+  const compareChips = comparison.filter((m) => m.current > 0 && m.previous > 0);
+  const hasCharging = charging.sessions > 0;
   const bars = series.map((b) => ({
     label: b.label,
     screen: Math.round((b.screen / 3600) * 10) / 10,
@@ -96,75 +98,88 @@ export default function Trends({ events }) {
         </div>
 
         <div className="grid">
-          <div className="card">
-            <h3>Screen time</h3>
-            <div className="big">{fmtHours(totals.screen)}</div>
-            <div className="sub">across the period</div>
-          </div>
-          <div className="card">
-            <h3>Productive</h3>
-            <div className="big">{fmtHours(totals.study)}</div>
-            <div className="sub">productive categories</div>
-          </div>
-          <div className="card">
-            <h3>Steps (app)</h3>
-            <div className="big">{fmtSteps(totals.steps)}</div>
-            <div className="sub">from STEPS events</div>
-          </div>
-          <div className="card">
-            <h3>Shorts</h3>
-            <div className="big">{fmtHours(totals.shorts)}</div>
-            <div className="sub">short-form video</div>
-          </div>
-          <div className="card">
-            <h3>Pickups</h3>
-            <div className="big">{totals.pickups}</div>
-            <div className="sub">screen-on events</div>
-          </div>
+          {totals.screen > 0 && (
+            <div className="card">
+              <h3>Screen time</h3>
+              <div className="big">{fmtHours(totals.screen)}</div>
+              <div className="sub">across the period</div>
+            </div>
+          )}
+          {totals.study > 0 && (
+            <div className="card">
+              <h3>Productive</h3>
+              <div className="big">{fmtHours(totals.study)}</div>
+              <div className="sub">productive categories</div>
+            </div>
+          )}
+          {totals.steps > 0 && (
+            <div className="card">
+              <h3>Steps (app)</h3>
+              <div className="big">{fmtSteps(totals.steps)}</div>
+              <div className="sub">from STEPS events</div>
+            </div>
+          )}
+          {totals.shorts > 0 && (
+            <div className="card">
+              <h3>Shorts</h3>
+              <div className="big">{fmtHours(totals.shorts)}</div>
+              <div className="sub">short-form video</div>
+            </div>
+          )}
+          {totals.pickups > 0 && (
+            <div className="card">
+              <h3>Pickups</h3>
+              <div className="big">{totals.pickups}</div>
+              <div className="sub">screen-on events</div>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="grid">
-        <div className="card" style={{ gridColumn: 'span 2' }}>
-          <h3>This month vs last month</h3>
-          <div className="list-inline">
-            {comparison.map((m) => (
-              <span key={m.metric} className="chip">
-                {m.label}
-                <b
-                  style={{
-                    color:
-                      m.change === null
-                        ? 'var(--muted)'
-                        : m.metric === 'study' || m.metric === 'steps'
-                          ? m.change >= 0
-                            ? 'var(--ok)'
-                            : 'var(--danger)'
-                          : m.change >= 0
-                            ? 'var(--danger)'
-                            : 'var(--ok)',
-                  }}
-                >
-                  {' '}
-                  {m.change === null
-                    ? 'no prior data'
-                    : `${m.change >= 0 ? '+' : ''}${m.change}%`}
-                </b>
-              </span>
-            ))}
-          </div>
+      {(minutes.length > 0 || hasCharging) && (
+        <div className="grid">
+          {minutes.length > 0 && (
+            <div className="card" style={{ gridColumn: 'span 2' }}>
+              <h3>This month vs last month</h3>
+              <div className="list-inline">
+                {minutes.map((m) => (
+                  <span key={m.metric} className="chip">
+                    {m.label}
+                    <b
+                      style={{
+                        color:
+                          m.metric === 'study' || m.metric === 'steps'
+                            ? m.change >= 0
+                              ? 'var(--ok)'
+                              : 'var(--danger)'
+                            : m.change >= 0
+                              ? 'var(--danger)'
+                              : 'var(--ok)',
+                      }}
+                    >
+                      {' '}
+                      {m.change >= 0 ? '+' : ''}
+                      {m.change}%
+                    </b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {hasCharging && (
+            <div className="card">
+              <h3>Charging discipline · last 7 days</h3>
+              <div className="row"><span>Charge sessions</span><strong>{charging.sessions}</strong></div>
+              <div className="row"><span>Avg session</span><strong>{formatDuration(charging.avgMinutes * 60)}</strong></div>
+              <div className="row">
+                <span>Overnight charges (21:00–06:00)</span>
+                <strong style={{ color: charging.overnight > 0 ? 'var(--ok)' : 'var(--muted)' }}>{charging.overnight}</strong>
+              </div>
+              <div className="sub">from CHARGE_START / CHARGE_END events</div>
+            </div>
+          )}
         </div>
-        <div className="card">
-          <h3>Charging discipline · last 7 days</h3>
-          <div className="row"><span>Charge sessions</span><strong>{charging.sessions}</strong></div>
-          <div className="row"><span>Avg session</span><strong>{formatDuration(charging.avgMinutes * 60)}</strong></div>
-          <div className="row">
-            <span>Overnight charges (21:00–06:00)</span>
-            <strong style={{ color: charging.overnight > 0 ? 'var(--ok)' : 'var(--muted)' }}>{charging.overnight}</strong>
-          </div>
-          <div className="sub">from CHARGE_START / CHARGE_END events</div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
