@@ -28,6 +28,7 @@ import ExportPanel from './components/ExportPanel.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import ManualEntry from './components/ManualEntry.jsx';
+import TabSkeleton, { Sk } from './components/Skeleton.jsx';
 
 const TABS = [
   ['overview', 'Overview'],
@@ -51,13 +52,43 @@ export default function App() {
     return unsub;
   }, []);
 
-  if (loading) return <div className="center muted">Loading…</div>;
+  if (loading)
+    return (
+      <div className="app" aria-busy="true">
+        <div className="sk-nav">
+          <Sk h={24} w={104} r={8} />
+          <div style={{ flex: 1 }} />
+          <Sk h={30} w={70} r={12} />
+          <Sk h={30} w={64} r={12} />
+          <Sk h={30} w={68} r={12} />
+          <Sk h={30} w={58} r={12} />
+          <Sk h={30} w={62} r={12} />
+        </div>
+        <main>
+          <TabSkeleton kind="overview" />
+        </main>
+      </div>
+    );
   if (!user) return <Login />;
   return <Dashboard user={user} />;
 }
 
 function Dashboard({ user }) {
-  const [tab, setTab] = useState('overview');
+  const [tab, setTabState] = useState('overview');
+  const [tabReady, setTabReady] = useState(true);
+  // keeps the skeleton on screen for one paint + a short beat before a
+  // (potentially heavy) tab is mounted, so a switch never flashes blank
+  const showTabTimer = useRef(0);
+  const setTab = (key) => {
+    if (key === tab) return;
+    setTabState(key);
+    setTabReady(false);
+    clearTimeout(showTabTimer.current);
+    requestAnimationFrame(() => {
+      showTabTimer.current = setTimeout(() => setTabReady(true), 180);
+    });
+  };
+  useEffect(() => () => clearTimeout(showTabTimer.current), []);
   const [events, setEvents] = useState(null);
   const [settings, setSettings] = useState({ domainCategories: {} });
   const [dataError, setDataError] = useState('');
@@ -132,6 +163,24 @@ function Dashboard({ user }) {
     return () => clearInterval(t);
   }, []);
 
+  // Fast first paint: a small recent slice loads within ~1-2s so the page
+  // shows real content as early as possible; the full snapshot flight
+  // below replaces it a few seconds later.
+  useEffect(() => {
+    let alive = true;
+    const fastQ = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(1500));
+    getDocs(fastQ)
+      .then((small) => {
+        if (!alive) return;
+        const fast = dedupeOverlaps(small.docs.map((d) => normalizeEvent(d.data())));
+        setEvents((full) => (full && full.length >= fast.length ? full : fast));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [user.uid]);
+
   const deleteEvent = async (eventId) => {
     if (!window.confirm('Delete this timeline entry?')) return;
     try {
@@ -180,6 +229,19 @@ function Dashboard({ user }) {
     );
     return unsub;
   }, [user.uid]);
+
+  const dataLoaded = events !== null;
+  useEffect(() => {
+    // keep skeletons through the first paint even when data lands quickly,
+    // so switching from skeleton -> content is always a smooth reveal
+    if (!dataLoaded) {
+      setTabReady(false);
+      return;
+    }
+    setTabReady(false);
+    const t = setTimeout(() => setTabReady(true), 220);
+    return () => clearTimeout(t);
+  }, [dataLoaded]);
 
   return (
     <div className="app">
@@ -301,20 +363,26 @@ function Dashboard({ user }) {
         </div>
       )}
 
-      <main>
-        {tab === 'overview' && (
-          <Overview
-            user={user}
-            events={filteredEvents}
-            settings={settings}
-          />
+      <main aria-busy={events === null || !tabReady ? true : undefined}>
+        {events === null || !tabReady ? (
+          <TabSkeleton kind={tab} />
+        ) : (
+          <>
+            {tab === 'overview' && (
+              <Overview
+                user={user}
+                events={filteredEvents}
+                settings={settings}
+              />
+            )}
+            {tab === 'trends' && <Trends events={filteredEvents} />}
+            {tab === 'timeline' && <Timeline events={filteredEvents} onDelete={deleteEvent} />}
+            {tab === 'export' && <ExportPanel user={user} />}
+            {tab === 'leaderboard' && <Leaderboard user={user} events={filteredEvents} />}
+            {tab === 'log' && <ManualEntry user={user} />}
+            {tab === 'settings' && <SettingsPage user={user} settings={settings} events={events || []} />}
+          </>
         )}
-        {tab === 'trends' && <Trends events={filteredEvents} />}
-        {tab === 'timeline' && <Timeline events={filteredEvents} onDelete={deleteEvent} />}
-        {tab === 'export' && <ExportPanel user={user} />}
-        {tab === 'leaderboard' && <Leaderboard user={user} events={filteredEvents} />}
-        {tab === 'log' && <ManualEntry user={user} />}
-        {tab === 'settings' && <SettingsPage user={user} settings={settings} events={events || []} />}
       </main>
     </div>
   );
