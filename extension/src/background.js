@@ -217,6 +217,14 @@ async function startSegmentForTab(tabId) {
 }
 
 async function onTabChanged(tabId) {
+  // Tab activations and background tab updates (reloads, push-title changes)
+  // fire even when this browser has no desktop focus — never start a session
+  // from them in that state, or the same wall-clock gets stored twice across
+  // multiple browsers.
+  if (!(await browserFocused())) {
+    await flushSegment();
+    return;
+  }
   await flushSegment();
   if (await getPaused()) return;
   await startSegmentForTab(tabId);
@@ -309,6 +317,7 @@ async function tick() {
 
 async function handleShortView(tabId, url) {
   if (await getPaused()) return;
+  if (!(await browserFocused())) return;
   const s = await getSession();
   if (!s || s.tabId !== tabId) return;
   if (s.shorts.lastUrl === url) return;
@@ -322,6 +331,7 @@ async function handleShortView(tabId, url) {
 
 async function handleTypingBurst(tabId, count) {
   if (await getPaused()) return;
+  if (!(await browserFocused())) return;
   const s = await getSession();
   if (!s || s.tabId !== tabId) return;
   s.typingBursts += count;
@@ -655,6 +665,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const title = msg.title;
       const url = msg.url;
       if (!tabId || !title) return;
+      // A background browser auto-playing YouTube must not create sessions.
+      if (!(await browserFocused())) {
+        sendResponse({ ok: true, category: null });
+        return true;
+      }
 
       // Ignore Shorts
       if (url.includes('/shorts/') || url.includes('/shorts?') || url.includes('/reel/') || url.includes('/reels/')) {
