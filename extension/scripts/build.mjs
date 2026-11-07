@@ -1,10 +1,26 @@
 import { build } from 'esbuild';
-import { copyFileSync, mkdirSync, rmSync, readdirSync } from 'fs';
+import { copyFileSync, mkdirSync, rmSync, readdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outdir = join(root, 'dist');
+// Mirror the final build to a stable, non-OneDrive path. Chrome/Brave revalidate
+// unpacked extensions at startup; if the registered path lives inside OneDrive
+// and is briefly unavailable/not hydrated when the browser starts, Chromium
+// uninstalls the unpacked registration (cleanup of unresolvable paths).
+// Loading from LOCALAPPDATA removes that race entirely.
+const mirrorDir = join(process.env.LOCALAPPDATA || root, 'LifeLensIQ-dist');
+
+function copyTree(src, dst) {
+  mkdirSync(dst, { recursive: true });
+  for (const name of readdirSync(src)) {
+    const s = join(src, name);
+    const d = join(dst, name);
+    if (statSync(s).isDirectory()) copyTree(s, d);
+    else copyFileSync(s, d);
+  }
+}
 
 rmSync(outdir, { recursive: true, force: true });
 mkdirSync(join(outdir, 'popup'), { recursive: true });
@@ -41,3 +57,10 @@ for (const f of readdirSync(join(root, 'assets', 'icons'))) {
 }
 
 console.log('Extension build complete ->', outdir);
+try {
+  rmSync(mirrorDir, { recursive: true, force: true });
+  copyTree(outdir, mirrorDir);
+  console.log('Stable mirror published ->', mirrorDir);
+} catch (err) {
+  console.warn('Mirror publish failed (extension/dist still valid):', err.message);
+}
