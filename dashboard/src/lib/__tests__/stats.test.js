@@ -30,6 +30,7 @@ streakForTarget,
   monthComparison,
   activeIdleForDay,
   attentionScore,
+  dedupeOverlaps,
 } from '../stats.js';
 
 const ev = (id, ts, durationSeconds, category, overrides = {}) => ({
@@ -545,5 +546,48 @@ describe('attentionScore', () => {
 
   it('returns zeros without data', () => {
     expect(attentionScore([], 1, now).score).toBe(0);
+  });
+});
+
+describe('dedupeOverlaps (multi-device double counting)', () => {
+  it('drops a fully-covered event and keeps distinct categories untouched', () => {
+    const base = Date.parse('2026-11-07T10:00:00');
+    const events = [
+      // Brave covers 10:00–11:00 (Entertainment)
+      ev('a', base, 3600, 'Entertainment', { endTs: base + 3600000 }),
+      // Chrome "phantom" 10:10–10:40, same category, different device
+      { ...ev('b', base + 600000, 1800, 'Entertainment', { endTs: base + 2400000 }), deviceId: 'chrome-x' },
+      // Different category in the same window must survive
+      ev('c', base + 900000, 1200, 'Productivity', { endTs: base + 2100000, deviceId: 'chrome-x' }),
+    ];
+    const out = dedupeOverlaps(events);
+    const ids = out.map((e) => e.id);
+    expect(ids).not.toContain('b');
+    expect(ids).toContain('a');
+    expect(ids).toContain('c');
+  });
+
+  it('trims the head of a partially overlapping event', () => {
+    const base = Date.parse('2026-11-07T10:00:00');
+    const events = [
+      ev('a', base, 3600, 'Entertainment', { endTs: base + 3600000 }),
+      ev('b', base + 1800000, 3600, 'Entertainment', { endTs: base + 5400000 }), // 10:30–11:30
+    ];
+    const out = dedupeOverlaps(events);
+    const b = out.find((e) => e.id === 'b');
+    expect(out.map((e) => e.id).sort()).toEqual(['a', 'b']);
+    expect(b.ts).toBe(base + 3600000);
+    expect(b.durationSeconds).toBe(1800);
+  });
+
+  it('never touches pomodoro / manual sessions', () => {
+    const base = Date.parse('2026-11-07T10:00:00');
+    const events = [
+      ev('a', base, 3600, 'Study', { endTs: base + 3600000 }),
+      { ...ev('p', base, 1500, 'Study', { endTs: base + 1500000 }), eventType: 'POMODORO' },
+      { ...ev('m', base, 900, 'Study', { endTs: base + 900000 }), eventType: 'STUDY_SESSION' },
+    ];
+    const out = dedupeOverlaps(events);
+    expect(out.length).toBe(3);
   });
 });

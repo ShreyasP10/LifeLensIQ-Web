@@ -15,6 +15,7 @@ import {
 } from './firebase.js';
 import { isLight, toggleTheme } from './lib/theme.js';
 import { normalizeEvent } from './lib/events.js';
+import { dedupeOverlaps } from './lib/stats.js';
 import { CATEGORIES } from './lib/categories.js';
 import { classify, matchOverride } from '../../extension/src/shared/categories.js';
 import { detectAnomalies } from './lib/insights.js';
@@ -72,7 +73,7 @@ function Dashboard({ user }) {
     try {
       const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));
       const snap = await getDocs(q);
-      setEvents(snap.docs.map((d) => normalizeEvent(d.data())));
+      setEvents(dedupeOverlaps(snap.docs.map((d) => normalizeEvent(d.data()))));
       setLastSync(Date.now());
     } catch (err) {
       setDataError(err.message);
@@ -146,7 +147,7 @@ function Dashboard({ user }) {
     const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));
     const unsub = onSnapshot(
       q,
-      (snap) => setEvents(snap.docs.map((d) => normalizeEvent(d.data()))),
+      (snap) => setEvents(dedupeOverlaps(snap.docs.map((d) => normalizeEvent(d.data())))),
       (err) => setDataError(err.message)
     );
     return unsub;

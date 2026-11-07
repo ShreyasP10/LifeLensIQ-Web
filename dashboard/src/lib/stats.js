@@ -667,3 +667,46 @@ export function buildStatsReport(events, range) {
     ),
   };
 }
+
+// Never dedupe these: they represent real-world sessions, not per-browser tracking.
+const DEDUPE_EXCLUDED = new Set(['POMODORO', 'STUDY_SESSION']);
+
+// Collapse overlapping per-category intervals so one wall-clock second is only
+// counted once, no matter which device (Brave + Chrome + phone) wrote events.
+// Fully-covered events are dropped; partially-overlapping ones are trimmed.
+export function dedupeOverlaps(events) {
+  if (!Array.isArray(events)) return events;
+  const untouched = [];
+  const byKey = new Map();
+  for (const ev of events) {
+    if (!ev || DEDUPE_EXCLUDED.has(ev.eventType)) { untouched.push(ev); continue; }
+    const start = Number(ev.ts) || 0;
+    if (!start) { untouched.push(ev); continue; }
+    const durS = Number(ev.durationSeconds) || 0;
+    const end = Number(ev.endTs) || (start + durS * 1000);
+    if (end - start <= 0) { untouched.push(ev); continue; }
+    const key = ev.category || 'Other';
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push({ ev, start, end });
+  }
+  const out = untouched;
+  for (const items of byKey.values()) {
+    items.sort((a, b) => a.start - b.start || b.end - a.end);
+    const kept = [];
+    for (const it of items) {
+      const last = kept[kept.length - 1];
+      if (!last) { kept.push(it); continue; }
+      if (it.end <= last.end) continue;
+      kept.push({ ...it, start: it.start < last.end ? last.end : it.start });
+    }
+    for (const k of kept) {
+      const originalEnd =
+        Number(k.ev.endTs) || (k.ev.ts + (Number(k.ev.durationSeconds) || 0) * 1000);
+      if (k.start === k.ev.ts && k.end === originalEnd) { out.push(k.ev); continue; }
+      const durationSeconds = Math.round((k.end - k.start) / 1000);
+      if (durationSeconds <= 0) continue;
+      out.push({ ...k.ev, ts: k.start, endTs: k.end, durationSeconds });
+    }
+  }
+  return out.sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+}

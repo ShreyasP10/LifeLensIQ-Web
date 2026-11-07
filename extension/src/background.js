@@ -224,6 +224,20 @@ async function onTabChanged(tabId) {
 
 /* ---------------- capture: tick ---------------- */
 
+// True only while one of THIS browser's windows holds desktop focus. With two
+// browsers installed, only the focused one may track time, or both keep
+// counting their last active tab and the same wall-clock gets stored twice.
+async function browserFocused() {
+  try {
+    const win = await chrome.windows.getLastFocused({ populate: false });
+    if (win && typeof win.focused === 'boolean') return win.focused;
+    const cur = await chrome.windows.getCurrent({ populate: false });
+    return Boolean(cur && cur.focused);
+  } catch {
+    return false; // accuracy-first: don't keep counting when we cannot tell
+  }
+}
+
 async function tick() {
   try {
     if (!authReady) await init();
@@ -232,6 +246,9 @@ async function tick() {
     } else {
       const idleState = await chrome.idle.queryState(IDLE_THRESHOLD_SECONDS);
       if (idleState === 'idle') {
+        await flushSegment();
+      } else if (!(await browserFocused())) {
+        // Not the focused browser (or not focused at all) — never extend time here.
         await flushSegment();
       } else {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
@@ -521,6 +538,9 @@ chrome.idle.onStateChanged.addListener(async (state) => {
     flushSegment();
   } else if (state === 'active') {
     if (await getPaused()) return;
+    // OS-wide activity (typing in Word, etc.) must not start browser tracking
+    // unless this browser actually has focus.
+    if (!(await browserFocused())) return;
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
     if (tabs.length > 0) {
       const s = await getSession();
