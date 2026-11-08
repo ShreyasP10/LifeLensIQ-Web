@@ -71,7 +71,11 @@ export default function App() {
       </div>
     );
   if (!user) return <Login />;
-  return <Dashboard user={user} />;
+  return (
+    <ErrorBoundary>
+      <Dashboard user={user} />
+    </ErrorBoundary>
+  );
 }
 
 function Dashboard({ user }) {
@@ -274,6 +278,29 @@ function Dashboard({ user }) {
     return unsub;
   }, [user.uid]);
 
+  const renderTab = (key) => {
+    switch (key) {
+      case 'overview':
+        return <Overview user={user} events={filteredEvents} settings={settings} />;
+      case 'trends':
+        return <Trends events={filteredEvents} />;
+      case 'timeline':
+        return <Timeline events={filteredEvents} onDelete={deleteEvent} />;
+      case 'export':
+        return <ExportPanel user={user} />;
+      case 'leaderboard':
+        return <Leaderboard user={user} events={filteredEvents} />;
+      case 'log':
+        return <ManualEntry user={user} />;
+      case 'settings':
+        return <SettingsPage user={user} settings={settings} events={events || []} />;
+      default:
+        return null;
+    }
+  };
+
+  const skeleton = events === null || pending;
+
   return (
     <div className="app">
       <nav>
@@ -319,30 +346,7 @@ function Dashboard({ user }) {
               )}
               {activeAlerts.map((a, i) => {
                 const key = `${a.title}-${a.detail}`;
-  const renderTab = (key) => {
-    switch (key) {
-      case 'overview':
-        return <Overview user={user} events={filteredEvents} settings={settings} />;
-      case 'trends':
-        return <Trends events={filteredEvents} />;
-      case 'timeline':
-        return <Timeline events={filteredEvents} onDelete={deleteEvent} />;
-      case 'export':
-        return <ExportPanel user={user} />;
-      case 'leaderboard':
-        return <Leaderboard user={user} events={filteredEvents} />;
-      case 'log':
-        return <ManualEntry user={user} />;
-      case 'settings':
-        return <SettingsPage user={user} settings={settings} events={events || []} />;
-      default:
-        return null;
-    }
-  };
-
-  const skeleton = events === null || pending;
-
-  return (
+                return (
                 <div key={key} className={`insight ${a.kind}`}>
                   <div className="insight-title">{a.title}</div>
                   <div className="insight-detail">{a.detail}</div>
