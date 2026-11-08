@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import {
   auth,
   db,
@@ -28,6 +28,7 @@ import ExportPanel from './components/ExportPanel.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import ManualEntry from './components/ManualEntry.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import TabSkeleton, { Sk } from './components/Skeleton.jsx';
 
 const TABS = [
@@ -75,20 +76,32 @@ export default function App() {
 
 function Dashboard({ user }) {
   const [tab, setTabState] = useState('overview');
-  const [tabReady, setTabReady] = useState(true);
-  // keeps the skeleton on screen for one paint + a short beat before a
-  // (potentially heavy) tab is mounted, so a switch never flashes blank
-  const showTabTimer = useRef(0);
+  // visited tabs stay mounted and are only hidden — switching them is instant
+  // and heavy memos are not recomputed on every visit
+  const [mounted, setMounted] = useState(() => new Set(['overview']));
+  const [pending, setPending] = useState(false);
+  const switchTimer = useRef(0);
+  const switchId = useRef(0);
+
   const setTab = (key) => {
     if (key === tab) return;
     setTabState(key);
-    setTabReady(false);
-    clearTimeout(showTabTimer.current);
-    requestAnimationFrame(() => {
-      showTabTimer.current = setTimeout(() => setTabReady(true), 180);
-    });
+    if (mounted.has(key)) return;
+    clearTimeout(switchTimer.current);
+    const id = ++switchId.current;
+    setPending(true);
+    // paint the skeleton first, then mount the (potentially heavy) tab
+    // underneath it, then drop the overlay once its first frame exists
+    switchTimer.current = setTimeout(() => {
+      setMounted((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (switchId.current === id) setPending(false);
+        })
+      );
+    }, 150);
   };
-  useEffect(() => () => clearTimeout(showTabTimer.current), []);
+  useEffect(() => () => clearTimeout(switchTimer.current), []);
   const [events, setEvents] = useState(null);
   const [settings, setSettings] = useState({ domainCategories: {} });
   const [dataError, setDataError] = useState('');
@@ -192,14 +205,45 @@ function Dashboard({ user }) {
     }
   };
 
+  // Live updates: the extension writes events continuously while you browse,
+  // so every snapshot used to re-normalise + re-dedupe 10k records and re-render
+  // every open tab. Coalesce them: apply at most once per 10s (first snapshot
+  // applies immediately), always the newest snapshot, wrapped in a transition
+  // so a big recompute never blocks the current frame.
+  const latestSnap = useRef(null);
+  const applyTimer = useRef(0);
+  const lastApply = useRef(0);
   useEffect(() => {
-    const q = query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000));
+    const apply = () => {
+      const snap = latestSnap.current;
+      latestSnap.current = null;
+      clearTimeout(applyTimer.current);
+      applyTimer.current = 0;
+      if (!snap) return;
+      lastApply.current = Date.now();
+      const next = dedupeOverlaps(snap.docs.map((d) => normalizeEvent(d.data())));
+      startTransition(() => setEvents(next));
+    };
     const unsub = onSnapshot(
-      q,
-      (snap) => setEvents(dedupeOverlaps(snap.docs.map((d) => normalizeEvent(d.data())))),
+      query(collection(db, 'users', user.uid, 'events'), orderBy('ts', 'desc'), limit(10000)),
+      (snap) => {
+        latestSnap.current = snap;
+        const since = Date.now() - lastApply.current;
+        if (lastApply.current && since < 10000) {
+          if (!applyTimer.current) {
+            applyTimer.current = setTimeout(apply, 10000 - since);
+          }
+        } else {
+          apply();
+        }
+      },
       (err) => setDataError(err.message)
     );
-    return unsub;
+    return () => {
+      unsub();
+      clearTimeout(applyTimer.current);
+      latestSnap.current = null;
+    };
   }, [user.uid]);
 
   useEffect(() => {
@@ -229,19 +273,6 @@ function Dashboard({ user }) {
     );
     return unsub;
   }, [user.uid]);
-
-  const dataLoaded = events !== null;
-  useEffect(() => {
-    // keep skeletons through the first paint even when data lands quickly,
-    // so switching from skeleton -> content is always a smooth reveal
-    if (!dataLoaded) {
-      setTabReady(false);
-      return;
-    }
-    setTabReady(false);
-    const t = setTimeout(() => setTabReady(true), 220);
-    return () => clearTimeout(t);
-  }, [dataLoaded]);
 
   return (
     <div className="app">
@@ -288,7 +319,30 @@ function Dashboard({ user }) {
               )}
               {activeAlerts.map((a, i) => {
                 const key = `${a.title}-${a.detail}`;
-                return (
+  const renderTab = (key) => {
+    switch (key) {
+      case 'overview':
+        return <Overview user={user} events={filteredEvents} settings={settings} />;
+      case 'trends':
+        return <Trends events={filteredEvents} />;
+      case 'timeline':
+        return <Timeline events={filteredEvents} onDelete={deleteEvent} />;
+      case 'export':
+        return <ExportPanel user={user} />;
+      case 'leaderboard':
+        return <Leaderboard user={user} events={filteredEvents} />;
+      case 'log':
+        return <ManualEntry user={user} />;
+      case 'settings':
+        return <SettingsPage user={user} settings={settings} events={events || []} />;
+      default:
+        return null;
+    }
+  };
+
+  const skeleton = events === null || pending;
+
+  return (
                 <div key={key} className={`insight ${a.kind}`}>
                   <div className="insight-title">{a.title}</div>
                   <div className="insight-detail">{a.detail}</div>
@@ -363,26 +417,13 @@ function Dashboard({ user }) {
         </div>
       )}
 
-      <main aria-busy={events === null || !tabReady ? true : undefined}>
-        {events === null || !tabReady ? (
-          <TabSkeleton kind={tab} />
-        ) : (
-          <>
-            {tab === 'overview' && (
-              <Overview
-                user={user}
-                events={filteredEvents}
-                settings={settings}
-              />
-            )}
-            {tab === 'trends' && <Trends events={filteredEvents} />}
-            {tab === 'timeline' && <Timeline events={filteredEvents} onDelete={deleteEvent} />}
-            {tab === 'export' && <ExportPanel user={user} />}
-            {tab === 'leaderboard' && <Leaderboard user={user} events={filteredEvents} />}
-            {tab === 'log' && <ManualEntry user={user} />}
-            {tab === 'settings' && <SettingsPage user={user} settings={settings} events={events || []} />}
-          </>
-        )}
+      <main aria-busy={skeleton ? true : undefined}>
+        {Array.from(mounted).map((key) => (
+          <div key={key} style={{ display: tab === key ? '' : 'none' }}>
+            <ErrorBoundary>{renderTab(key)}</ErrorBoundary>
+          </div>
+        ))}
+        {skeleton && <div className="sk-overlay"><TabSkeleton kind={tab} /></div>}
       </main>
     </div>
   );

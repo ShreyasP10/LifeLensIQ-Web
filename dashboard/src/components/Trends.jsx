@@ -136,13 +136,13 @@ export default function Trends({ events }) {
         </div>
       </div>
 
-      {(minutes.length > 0 || hasCharging) && (
+      {(compareChips.length > 0 || hasCharging) && (
         <div className="grid">
-          {minutes.length > 0 && (
+          {compareChips.length > 0 && (
             <div className="card" style={{ gridColumn: 'span 2' }}>
               <h3>This month vs last month</h3>
               <div className="list-inline">
-                {minutes.map((m) => (
+                {compareChips.map((m) => (
                   <span key={m.metric} className="chip">
                     {m.label}
                     <b

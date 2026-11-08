@@ -456,8 +456,17 @@ nav {
 }
 
 main {
+  position: relative;
   max-width: 1160px;
   margin: 0 auto;
+  padding: 26px 24px 72px;
+}
+
+.sk-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--bg);
   padding: 26px 24px 72px;
 }
 
